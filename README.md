@@ -233,7 +233,7 @@ v0.1.0-developer — March 19, 2026
 | Generative identity (sheep NFT) | ✅ Live |
 | 41 namespace anchors on XRPL | ✅ Anchored |
 | **Test suite** | **1,006 tests passing** |
-| Cross River Bank | ⏳ Credentials pending |
+| PArtner Bank | ⏳ Credentials pending |
 | pip install pay-protocol | ⏳ Coming |
 | v1.0.0 stable | ⏳ Planned |
 
