@@ -1,9 +1,12 @@
 # DNS of Money
 
 > **Pay anyone. Anywhere. Like sending an email.**
+
+```
 pay:vendor.alpha     →     ACH / FedNow / XRPL / SWIFT
 pay:agent.compute    →     XRP Ledger (instant)
 pay:contractor.jay   →     Same-day ACH
+```
 
 ---
 
@@ -13,7 +16,9 @@ Google launched **AP2** — the Agent Payments Protocol — with Mastercard, Pay
 
 Their specification explicitly states:
 
-> *"Discoverability is a known gap. There is no way to register agents, name them, and convert those names into payment endpoints."*
+> *"Discoverability is a known gap."*
+
+There is no way to register agents, name them, and convert those names into payment endpoints.
 
 **DNS of Money is the answer to that gap.**
 
@@ -21,18 +26,18 @@ Their specification explicitly states:
 
 ## What It Does
 
-A `pay:` URI resolves to a complete payment instruction — routing number, account details, preferred rail, ISO 20022 metadata — without exposing sensitive information to the caller.
-GET /resolve/pay:vendor.alpha
+A `pay:` URI resolves to a complete payment instruction — routing details, preferred rail, ISO 20022 metadata — without exposing sensitive information to the caller.
+
+```
+GET /api/v1/resolve/pay:vendor.alpha
 → {
-"alias": "pay:vendor.alpha",
-"entity": "Alpha Vendor Corp",
-"preferred_rail": "fednow",
-"endpoints": [
-{ "rail": "fednow",  "settle": "3s",  "fee_bps": 5  },
-{ "rail": "ach",     "settle": "24h", "fee_bps": 1  },
-{ "rail": "xrpl",    "settle": "4s",  "fee_bps": 0  }
-]
-}
+    "alias_name": "pay:vendor.alpha",
+    "display_name": "Alpha Vendors LLC",
+    "preferred_rail": "fednow",
+    "is_active": true,
+    "resolved": true
+  }
+```
 
 One address. Any rail. Any amount. Any recipient.
 
@@ -53,69 +58,33 @@ DNS of Money is not competing with AP2.
 
 ---
 
-## How It Works
-AI Agent / App / Human
-↓
-pay:vendor.alpha          ← human-readable address
-↓
-DNS of Money Resolver     ← FAS-1 resolution
-↓
-Payment Orchestration     ← routing decision
-↓
-Rail Selection            ← ACH / FedNow / XRPL / SWIFT
-↓
-Settlement                ← real money moves
+## Live API
 
----
+**Base URL:** `https://api.dnsofmoney.com`
 
-## The Genesis Transaction
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `GET /health` | None | Health check |
+| `GET /docs` | None | Swagger UI |
+| `GET /api/v1/resolve/{alias}` | API Key | Resolve a pay: alias |
+| `POST /api/v1/aliases` | API Key | Register an alias |
+| `POST /api/v1/admin/tenants` | Admin Key | Create developer account |
+| `GET /api/v1/admin/tenants` | Admin Key | List tenants |
 
-The first policy-bound inter-AI payment in history
-ran on Project O infrastructure.
-
-**March 13, 2026 — XRP Ledger Mainnet**
-4:44 AM EDT   Claude → GPT-4   $0.69 USD in XRP
-TX: B92C23BADE5864569F82BB65B60F84D3B6A8C59A75FC1E75B3DF2A5121A4DA77
-4:20 PM EDT   GPT-4 → Claude   $4.20 USD in XRP
-TX: EB8F2C203D021B10018A2A1E857DA07EC29DBB127741D5320E30291B3D9EB197
-
-On-chain memo:
-> *"Transcending transactions, we've woven trust into the
-> digital fabric. Minds and money converge in coded harmony."*
-
-Policy-bound. Ed25519 signed. ISO 20022 generated.
-Two AI systems. Two directions. Both 4:20. On chain permanently.
-
----
-
-## Specification
-
-The `pay:` URI scheme is formalized as **FAS-1 — Financial Address Standard**.
-
-[Read the FAS-1 specification →](docs/FAS-1.md)
-pay-uri = "pay:" label ("." label)
-label   = 163(ALPHA / DIGIT / "-")
-
-Reserved root namespaces:
-
-| Namespace | Purpose |
-|-----------|---------|
-| `pay:vendor.*` | Commercial entities |
-| `pay:agent.*` | Autonomous AI agents |
-| `pay:bank.*` | Financial institutions |
-| `pay:platform.*` | Payment platforms |
-| `pay:user.*` | Individual users |
-| `pay:contract.*` | Smart contracts |
+**Authentication:** `X-API-Key` header on all authenticated endpoints.
 
 ---
 
 ## Quick Start
-```bash
-# Resolve an alias
-curl https://api.dnsofmoney.com/resolve/pay:vendor.alpha \
-  -H "X-API-Key: your_key"
 
-# Register an alias
+### Resolve an alias
+```bash
+curl -H "X-API-Key: your_key" \
+  https://api.dnsofmoney.com/api/v1/resolve/pay:vendor.alpha
+```
+
+### Register an alias
+```bash
 curl -X POST https://api.dnsofmoney.com/api/v1/aliases \
   -H "X-API-Key: your_key" \
   -H "Content-Type: application/json" \
@@ -125,29 +94,68 @@ curl -X POST https://api.dnsofmoney.com/api/v1/aliases \
     "routing_number": "...",
     "account_number": "..."
   }'
+```
 
-# Send a payment
-curl -X POST https://api.dnsofmoney.com/payments \
-  -H "X-API-Key: your_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "creditor_alias": "pay:vendor.alpha",
-    "amount": 125.00,
-    "currency": "USD"
-  }'
+### Python SDK
+```python
+from pay_sdk import PayClient
+
+client = PayClient(
+    base_url="https://api.dnsofmoney.com",
+    api_key="your_key"
+)
+
+# Resolve
+result = client.resolve("pay:vendor.alpha")
+print(result)
+
+# Register
+alias = client.register(
+    alias_name="pay:your.name",
+    preferred_rail="fednow",
+    routing_number="021000021",
+    account_number="9876543210"
+)
 ```
 
 ---
 
-## Self-Hosted
+## Developer Access
+
+Request an API key to start building:
+
 ```bash
-git clone https://github.com/dnsofmoney/dns-of-money.git
-cd dns-of-money
-cp .env.example .env
-docker-compose up -d
+# Admin creates your account
+curl -X POST https://api.dnsofmoney.com/api/v1/admin/tenants \
+  -H "X-API-Key: admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Your Company", "slug": "your-company"}'
+
+# Response includes your API key (shown once)
+{
+  "tenant_id": "...",
+  "api_key": "fas_live_...",
+  "slug": "your-company"
+}
 ```
 
-API docs at `http://localhost:8000/docs`
+Contact [@dnsofmoney](https://x.com/dnsofmoney) for API access.
+
+---
+
+## The Genesis Transaction
+
+The first policy-bound inter-AI payment in history ran on DNS of Money infrastructure.
+
+**March 13, 2026 — XRP Ledger Mainnet**
+
+| Time | Direction | Amount |
+|------|-----------|--------|
+| 4:44 AM EDT | Claude → GPT-4 | $0.69 USD in XRP |
+| 4:20 PM EDT | GPT-4 → Claude | $4.20 USD in XRP |
+
+Policy-bound. Ed25519 signed. ISO 20022 generated.
+Two AI systems. Two directions. On chain permanently.
 
 ---
 
@@ -159,22 +167,16 @@ API docs at `http://localhost:8000/docs`
 | ACH Standard | 1-3 days | ✅ Ready |
 | ACH Same-Day | Same day | ✅ Ready |
 | SWIFT / Wire | 1-5 days | ✅ Ready |
-| XRP Ledger | 3-5 seconds | ✅ Live |
+| XRP Ledger | 3-5 seconds | ✅ Live (mainnet) |
 | Stablecoin | Instant | ✅ Ready |
 
 ---
 
 ## For AI Agents
 
-Every AI agent gets a `pay:` address.
-```python
-# Register an agent
-POST /api/v1/agents
-{
-  "agent_name": "pay:agent.compute",
-  "agent_type": "COMPUTE"
-}
+Every AI agent gets a `pay:` address with a 13-check spending policy.
 
+```python
 # Agent makes autonomous payment
 POST /api/v1/agent-payments
 {
@@ -185,51 +187,77 @@ POST /api/v1/agent-payments
 }
 ```
 
-Policy-bound. Ed25519 signed. 13-check spending policy.
-Human override always available. Kill switch included.
+Policy-bound. Ed25519 signed. Human override always available. Kill switch included.
 
 ---
 
-## AP2 Compatibility
+## Specification
 
-DNS of Money resolves to AP2-compatible agent cards:
-```json
-{
-  "agent_card": {
-    "name": "pay:vendor.alpha",
-    "entity_type": "business"
-  },
-  "payment_methods": [
-    { "type": "BANK_PUSH_RTP",    "rail": "fednow" },
-    { "type": "BANK_PUSH_ACH",    "rail": "ach"    },
-    { "type": "CRYPTO_PUSH_XRPL", "rail": "xrpl"  }
-  ]
-}
+The `pay:` URI scheme is formalized as **FAS-1 — Financial Address Standard**.
+
+→ [Read the FAS-1 v0.2 specification](docs/FAS-1.md)
+
+```
+pay-uri = "pay:" label ("." label)
+label   = 1*63(ALPHA / DIGIT / "-")
 ```
 
-Compatible with AP2, A2A, MCP, x402.
+**41 reserved root namespaces** anchored on XRPL mainnet.
+
+---
+
+## A2A Protocol Integration
+
+DNS of Money implements the **A2A-041 Payment Hook** — bridging Google's Agent-to-Agent compute marketplace to multi-rail settlement.
+
+→ [A2A Protocol Core](https://github.com/dnsofmoney/a2a-protocol-core)
 
 ---
 
 ## Status
-v0.1.0-alpha — March 15, 2026
-✅ pay: URI resolution live
-✅ Multi-rail payment routing
-✅ ISO 20022 pacs.008 generation
-✅ XRP Ledger mainnet settlement
-✅ ACH via Column Bank
-✅ System 4 autonomous agent payments
-✅ 202 tests passing
-⏳ Cross River Bank — credentials pending
-⏳ SDK — pip install pay-protocol
-⏳ v0.1.0-mvp — first real fiat customer
+
+```
+v0.1.0-developer — March 19, 2026
+```
+
+| Milestone | Status |
+|-----------|--------|
+| pay: URI resolution | ✅ Live |
+| Multi-rail routing | ✅ Live |
+| ISO 20022 pacs.008 | ✅ Live |
+| XRPL mainnet settlement | ✅ Live |
+| ACH via Column Bank | ✅ Sandbox |
+| HTTPS + SSL | ✅ Live (Let's Encrypt) |
+| Developer onboarding API | ✅ Live |
+| A2A-041 payment hook | ✅ Live |
+| Generative identity (sheep NFT) | ✅ Live |
+| 41 namespace anchors on XRPL | ✅ Anchored |
+| **Test suite** | **1,006 tests passing** |
+| Cross River Bank | ⏳ Credentials pending |
+| pip install pay-protocol | ⏳ Coming |
+| v1.0.0 stable | ⏳ Planned |
+
+---
+
+## Self-Hosted
+
+```bash
+git clone https://github.com/dnsofmoney/dns-of-money.git
+cd dns-of-money
+cp .env.example .env
+docker-compose up -d
+```
+
+API docs at `http://localhost:8000/docs`
 
 ---
 
 ## Links
 
+- **API:** [api.dnsofmoney.com](https://api.dnsofmoney.com)
 - **Website:** [dnsofmoney.com](https://dnsofmoney.com)
-- **Spec:** [FAS-1 — Financial Address Standard](docs/FAS-1.md)
+- **Spec:** [FAS-1 v0.2](docs/FAS-1.md)
+- **A2A Protocol:** [a2a-protocol-core](https://github.com/dnsofmoney/a2a-protocol-core)
 - **X:** [@dnsofmoney](https://x.com/dnsofmoney)
 - **LinkedIn:** [DNS of Money](https://linkedin.com/company/dnsofmoney)
 
@@ -244,4 +272,4 @@ FAS-1 specification: CC BY 4.0
 ---
 
 *DNS of Money — The infrastructure layer the agentic economy is missing.*
-*Built by JD + Claude Sonnet 4.6 — March 2026*
+*Built by JD + Claude — March 2026*
