@@ -1,275 +1,442 @@
-# DNS of Money
+# dns://money — Financial Address Resolution for the Machine Economy
 
-> **Pay anyone. Anywhere. Like sending an email.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![FAS-1 Spec](https://img.shields.io/badge/spec-FAS--1%20v0.2-green)](docs/FAS-1-spec.md)
+[![XRPL Anchored](https://img.shields.io/badge/XRPL-anchored%20on--chain-blue)](https://xrpl.org)
+[![Status](https://img.shields.io/badge/status-Phase%206%20active-orange)](CHANGELOG.md)
+[![A2A Compatible](https://img.shields.io/badge/A2A-041%20compatible-purple)](https://github.com/dnsofmoney/a2a-protocol-core)
 
-```
-pay:vendor.alpha     →     ACH / FedNow / XRPL / SWIFT
-pay:agent.compute    →     XRP Ledger (instant)
-pay:contractor.jay   →     Same-day ACH
-```
+> **We are not a bank. We are the layer above it.**
 
----
-
-## The Problem
-
-Google launched **AP2** — the Agent Payments Protocol — with Mastercard, PayPal, Coinbase, Adyen, and 56 other enterprise partners.
-
-Their specification explicitly states:
-
-> *"Discoverability is a known gap."*
-
-There is no way to register agents, name them, and convert those names into payment endpoints.
-
-**DNS of Money is the answer to that gap.**
+DNS of Money is a **financial address resolution protocol** and **payment orchestration infrastructure** for the machine economy. It resolves human-readable `pay:` identifiers to payment endpoints across multiple rails — without touching funds, holding deposits, or requiring a banking license.
 
 ---
 
-## What It Does
+## What This Is
 
-A `pay:` URI resolves to a complete payment instruction — routing details, preferred rail, ISO 20022 metadata — without exposing sensitive information to the caller.
+Just as DNS resolves `example.com` → `IP address`, FAS-1 resolves `pay:vendor.alpha` → **complete payment instruction**.
 
 ```
-GET /api/v1/resolve/pay:vendor.alpha
-→ {
-    "alias_name": "pay:vendor.alpha",
-    "display_name": "Alpha Vendors LLC",
-    "preferred_rail": "fednow",
-    "is_active": true,
-    "resolved": true
-  }
+pay:agent.compute  →  { rail: "XRPL", address: "rXXX...", iso_hint: "pacs.008.001.08" }
+pay:vendor.alpha   →  { rail: "FedNow", address: "021000021:1234567890", fee_estimate: "0.045" }
+pay:contractor.jay →  { rail: "ACH", routing: "...", account: "..." }
 ```
 
-One address. Any rail. Any amount. Any recipient.
+No raw wallet addresses. No routing numbers in UX. One identifier that works everywhere.
 
 ---
 
-## The Protocol Stack
+## Why This Exists
 
-| Protocol | Owner | Role |
-|----------|-------|------|
-| A2A | Google | Agent-to-agent communication |
-| MCP | Anthropic | Tool and context access |
-| AP2 | Google + 60 partners | Payment authorization |
-| x402 | Coinbase | Crypto / stablecoin rail |
-| **FAS-1 / pay:** | **DNS of Money** | **Address resolution — the missing layer** |
+**The agent address resolution gap.** AI agents can now transact autonomously — but there is no standard way to name them, register them, and convert those names into payment endpoints. AP2, A2A, and MCP all have this gap. FAS-1 is the answer.
 
-DNS of Money is not competing with AP2.
-**DNS of Money is the infrastructure AP2 needs to function.**
+> *"Discoverability is a known gap. There is no way to register agents, name them, and convert those names into payment endpoints."*
+> — FAS-1 v0.2, AP2 gap analysis
+
+DNS of Money is the naming and resolution layer for agentic commerce.
 
 ---
 
-## Live API
+## Architecture
 
-**Base URL:** `https://api.dnsofmoney.com`
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DNS of Money                              │
+│                  pay: Namespace Layer                        │
+│                                                             │
+│   pay:agent.compute  →  Resolver  →  ResolutionResponse     │
+│                              │                              │
+│         ┌────────────────────┼────────────────────┐         │
+│         ▼                    ▼                    ▼         │
+│    XRPL Adapter         FedNow Adapter       ACH Adapter    │
+│    (XRPL mainnet)       (instant USD)        (Column)       │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+          ┌───────────────────────────────────────┐
+          │         Financial Autonomy Stack       │
+          │           (execution layer)            │
+          │  Payment routing · ISO 20022 · OFAC   │
+          │  Agent wallets · Policy engine         │
+          └───────────────────────────────────────┘
+```
 
-| Endpoint | Auth | Description |
-|----------|------|-------------|
-| `GET /health` | None | Health check |
-| `GET /docs` | None | Swagger UI |
-| `GET /api/v1/resolve/{alias}` | API Key | Resolve a pay: alias |
-| `POST /api/v1/aliases` | API Key | Register an alias |
-| `POST /api/v1/admin/tenants` | Admin Key | Create developer account |
-| `GET /api/v1/admin/tenants` | Admin Key | List tenants |
+### Four-Layer Stack
 
-**Authentication:** `X-API-Key` header on all authenticated endpoints.
+| Layer | Name | Purpose |
+|---|---|---|
+| 1 | **DNS of Money** | `pay:` alias registration and resolution |
+| 2 | **AI Orchestration Layer** | Routing decisions, cost optimization, rail scoring |
+| 3 | **Multi-Rail Payment Router** | Settlement execution (ACH, FedNow, XRPL, SWIFT) |
+| 4 | **Autonomous Agent Network** | M2M commerce, agent-to-agent payment hooks |
+
+MVP flow: `alias → resolve → route → ISO 20022 hint → simulate settlement`
+
+---
+
+## The `pay:` URI Scheme
+
+**FAS-1** (Financial Address Standard 1) defines the `pay:` URI scheme for human-readable financial addresses.
+
+```
+pay:vendor.alpha          # vendor namespace, alpha entity
+pay:agent.compute         # agent namespace, compute service
+pay:contractor.jay        # contractor namespace, individual
+pay:bank.settlement       # institutional namespace
+```
+
+### Format
+
+```
+pay-uri  = "pay:" label *("." label)
+label    = 1*63( ALPHA / DIGIT / "-" )
+```
+
+Rules:
+- Lowercase only
+- Dots are hierarchy separators, not name separators
+- People and brands: `firstlast` (no dots) — e.g., `pay:elonmusk`
+- Max 128 characters
+- Regex: `^pay:[a-z0-9][a-z0-9\-]*(\.[a-z0-9][a-z0-9\-]*)+$`
+
+Full spec: [`docs/FAS-1-spec.md`](docs/FAS-1-spec.md) · License: CC BY 4.0
+
+---
+
+## Resolution Response
+
+```json
+{
+  "alias": "pay:vendor.alpha",
+  "preferred_rail": "XRPL",
+  "endpoints": [
+    {
+      "rail": "XRPL",
+      "currency": "USD",
+      "address": "rXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "routing_metadata": { "destination_tag": 12345 },
+      "settlement_latency": "3-5s",
+      "fee_estimate": "0.0001"
+    },
+    {
+      "rail": "FedNow",
+      "currency": "USD",
+      "address": "021000021:1234567890",
+      "routing_metadata": { "routing_number": "021000021" },
+      "settlement_latency": "instant",
+      "fee_estimate": "0.045"
+    }
+  ],
+  "iso20022_hint": "pacs.008.001.08",
+  "ttl_seconds": 300,
+  "resolved_at": "2026-03-20T00:00:00Z"
+}
+```
 
 ---
 
 ## Quick Start
 
-### Resolve an alias
+### Resolve a `pay:` alias
+
 ```bash
-curl -H "X-API-Key: your_key" \
-  https://api.dnsofmoney.com/api/v1/resolve/pay:vendor.alpha
+curl https://api.dnsofmoney.com/v1/resolve/pay:vendor.alpha \
+  -H "X-API-Key: your_key"
 ```
 
-### Register an alias
+### Register a `pay:` alias (founding tier)
+
 ```bash
-curl -X POST https://api.dnsofmoney.com/api/v1/aliases \
+curl -X POST https://api.dnsofmoney.com/v1/aliases/register \
   -H "X-API-Key: your_key" \
   -H "Content-Type: application/json" \
   -d '{
-    "alias_name": "pay:your.name",
-    "preferred_rail": "fednow",
-    "routing_number": "...",
-    "account_number": "..."
+    "alias": "pay:yourname.here",
+    "xrpl_address": "rYourXRPLAddress",
+    "payment_tx_hash": "VERIFIED_5XRP_TX_HASH",
+    "tier": "founding"
   }'
 ```
 
-### Python SDK
-```python
-from pay_sdk import PayClient
+### Check availability
 
-client = PayClient(
-    base_url="https://api.dnsofmoney.com",
-    api_key="your_key"
-)
-
-# Resolve
-result = client.resolve("pay:vendor.alpha")
-print(result)
-
-# Register
-alias = client.register(
-    alias_name="pay:your.name",
-    preferred_rail="fednow",
-    routing_number="021000021",
-    account_number="9876543210"
-)
+```bash
+curl https://api.dnsofmoney.com/v1/aliases/available/yourname.here
+# → { "status": "available" | "taken" | "reserved" }
 ```
 
 ---
 
-## Developer Access
+## Agent Integration
 
-Request an API key to start building:
+### MCP / A2A
 
-```bash
-# Admin creates your account
-curl -X POST https://api.dnsofmoney.com/api/v1/admin/tenants \
-  -H "X-API-Key: admin_key" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Your Company", "slug": "your-company"}'
+DNS of Money resolves the agent payment discoverability gap identified in AP2 and A2A-002. Any agent can advertise a `pay:` alias; any caller can resolve it to a ranked list of payment endpoints without prior knowledge of the agent's banking infrastructure.
 
-# Response includes your API key (shown once)
+```python
+# A2A-031 binding pattern
+agent_card = {
+    "agent_id": "AGT-COMPUTE-001",
+    "payment_alias": "pay:agent.compute"
+}
+
+# Caller resolves before payment
+resolution = await resolve("pay:agent.compute")
+# → { rail, address, iso20022_hint }
+```
+
+### Python
+
+```python
+import httpx
+
+async def resolve_payment_alias(alias: str, api_key: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        r = await client.get(
+            f"https://api.dnsofmoney.com/v1/resolve/{alias}",
+            headers={"X-API-Key": api_key}
+        )
+        return r.json()
+
+result = await resolve_payment_alias("pay:vendor.alpha", "your_key")
+print(result["preferred_rail"])   # "XRPL"
+print(result["iso20022_hint"])    # "pacs.008.001.08"
+```
+
+### JavaScript / TypeScript
+
+```typescript
+const resolve = async (alias: string): Promise<ResolutionResponse> => {
+  const res = await fetch(`https://api.dnsofmoney.com/v1/resolve/${alias}`, {
+    headers: { "X-API-Key": process.env.DNS_MONEY_API_KEY! }
+  });
+  return res.json();
+};
+
+const { preferred_rail, endpoints, iso20022_hint } = await resolve("pay:agent.compute");
+```
+
+---
+
+## Supported Payment Rails
+
+| Rail | Type | Latency | Currency |
+|---|---|---|---|
+| XRPL | Blockchain | 3–5 seconds | XRP, IOUs |
+| FedNow | Instant ACH | Instant | USD |
+| ACH | Bank transfer | 1–3 days | USD |
+| SWIFT | Wire | 1–5 days | Multi-currency |
+| Solana/USDC | Blockchain | <1 second | USDC |
+
+---
+
+## On-Chain Namespace Anchors
+
+All root namespaces are immutably anchored on XRPL mainnet via FAS-1 memo transactions before publication of this spec. This is the moat: namespaces cannot be forked once registered on-chain.
+
+**Confirmed on-chain (March 2026):**
+
+```
+Genesis TX        — March 13, 2026 — first inter-AI payment on XRPL mainnet
+pay:agent.*       — March 17, 2026 — agent namespace root
+pay:swift         pay:fednow        pay:fedreserve
+pay:iso20022      pay:cbdc          pay:treasury
+pay:bis           pay:imf           pay:worldbank
+pay:correspondent pay:nostro        pay:vostro
+pay:fedwire       pay:chips         pay:chaps
+pay:target2       pay:cips          pay:ripplenet
+pay:odl           pay:swift.usd     pay:swift.eur
+```
+
+All memo transactions use the FAS-1 format:
+```json
 {
-  "tenant_id": "...",
-  "api_key": "fas_live_...",
-  "slug": "your-company"
+  "p": "FAS-1",
+  "v": "0.1",
+  "a": "pay:agent.*",
+  "t": "root_namespace",
+  "o": "dnsofmoney.com",
+  "d": "2026-03-17"
 }
 ```
 
-Contact [@dnsofmoney](https://x.com/dnsofmoney) for API access.
+---
+
+## Founding Tier
+
+The first **500** `pay:` names are available at **5 XRP** flat — permanently grandfathered at founding pricing. One name per XRPL wallet. On-chain proof issued at registration.
+
+- Founding tier encoded on XRPL mainnet via FAS-1 memo
+- Permanent — cannot be revoked
+- Hard cap enforced atomically: `SELECT ... FOR UPDATE` inside the registration transaction
+
+**Check remaining spots:** `GET /v1/aliases/founding/remaining`
 
 ---
 
-## The Genesis Transaction
+## Proof of Work
 
-The first policy-bound inter-AI payment in history ran on DNS of Money infrastructure.
+This is not vaporware. On **March 13, 2026** we executed the first confirmed AI-to-AI payments on the XRP Ledger mainnet:
 
-**March 13, 2026 — XRP Ledger Mainnet**
+| TX | Time | Direction | Amount | Rail | Status |
+|---|---|---|---|---|---|
+| TX1 | 4:44 AM EDT | Claude → GPT-4 | $0.69 USD in XRP | XRPL | `tesSUCCESS` |
+| TX2 | 4:20 PM EDT | GPT-4 → Claude | $4.20 USD in XRP | XRPL | `tesSUCCESS` |
+| TX3 | 9:45 AM UTC March 15 | Claude → GPT-4 | $0.69 | Column ACH | Confirmed |
 
-| Time | Direction | Amount |
-|------|-----------|--------|
-| 4:44 AM EDT | Claude → GPT-4 | $0.69 USD in XRP |
-| 4:20 PM EDT | GPT-4 → Claude | $4.20 USD in XRP |
-
-Policy-bound. Ed25519 signed. ISO 20022 generated.
-Two AI systems. Two directions. On chain permanently.
+Bidirectional AI payment rail. On-chain. Permanent. Verifiable.
 
 ---
 
-## Supported Rails
+## ISO 20022 Compatibility
 
-| Rail | Settle Time | Status |
-|------|-------------|--------|
-| FedNow | 3 seconds | ✅ Ready |
-| ACH Standard | 1-3 days | ✅ Ready |
-| ACH Same-Day | Same day | ✅ Ready |
-| SWIFT / Wire | 1-5 days | ✅ Ready |
-| XRP Ledger | 3-5 seconds | ✅ Live (mainnet) |
-| Stablecoin | Instant | ✅ Ready |
+All payment models are ISO 20022 compatible. The resolver returns `iso20022_hint` on every resolution response, enabling downstream systems to generate standards-compliant payment messages without any mapping work.
 
----
-
-## For AI Agents
-
-Every AI agent gets a `pay:` address with a 13-check spending policy.
-
-```python
-# Agent makes autonomous payment
-POST /api/v1/agent-payments
-{
-  "payee_alias": "pay:vendor.alpha",
-  "amount": 0.69,
-  "currency": "USD",
-  "category": "compute"
-}
-```
-
-Policy-bound. Ed25519 signed. Human override always available. Kill switch included.
+| Message | Usage |
+|---|---|
+| `pacs.008` | Credit transfer initiation |
+| `pacs.002` | Payment status report |
+| `pain.001` | Customer credit transfer |
+| `camt.053` | Account statement |
+| `camt.054` | Debit/credit notification |
 
 ---
 
-## Specification
+## What We Are Not
 
-The `pay:` URI scheme is formalized as **FAS-1 — Financial Address Standard**.
-
-→ [Read the FAS-1 v0.2 specification](docs/FAS-1.md)
+This protocol is explicit about scope:
 
 ```
-pay-uri = "pay:" label ("." label)
-label   = 1*63(ALPHA / DIGIT / "-")
+✅ Payment address resolution
+✅ Payment orchestration infrastructure
+✅ Financial metadata layer
+✅ Routing intelligence layer
+✅ API gateway over licensed banking infrastructure
+
+❌ Not a bank
+❌ Not a deposit holder
+❌ Not a settlement institution
+❌ Not a card issuer
+❌ Not a clearing network
 ```
 
-**41 reserved root namespaces** anchored on XRPL mainnet.
+No banking license required to use this protocol.
 
 ---
 
-## A2A Protocol Integration
+## Repository Structure
 
-DNS of Money implements the **A2A-041 Payment Hook** — bridging Google's Agent-to-Agent compute marketplace to multi-rail settlement.
-
-→ [A2A Protocol Core](https://github.com/dnsofmoney/a2a-protocol-core)
+```
+dns-of-money/
+├── docs/
+│   ├── FAS-1-spec.md          # Financial Address Standard 1 (CC BY 4.0)
+│   ├── architecture.md        # Full system architecture
+│   └── integration-guide.md   # Integration patterns (MCP, A2A, REST)
+├── examples/
+│   ├── python/                # Python integration examples
+│   ├── typescript/            # TypeScript/JavaScript examples
+│   └── curl/                  # REST API examples
+├── schemas/
+│   ├── resolution-response.json   # JSON Schema for resolution response
+│   └── registration-request.json  # JSON Schema for registration
+└── CHANGELOG.md
+```
 
 ---
 
-## Status
+## Related Repositories
 
-```
-v0.1.0-developer — March 19, 2026
-```
-
-| Milestone | Status |
-|-----------|--------|
-| pay: URI resolution | ✅ Live |
-| Multi-rail routing | ✅ Live |
-| ISO 20022 pacs.008 | ✅ Live |
-| XRPL mainnet settlement | ✅ Live |
-| ACH via Column Bank | ✅ Sandbox |
-| HTTPS + SSL | ✅ Live (Let's Encrypt) |
-| Developer onboarding API | ✅ Live |
-| A2A-041 payment hook | ✅ Live |
-| Generative identity (sheep NFT) | ✅ Live |
-| 41 namespace anchors on XRPL | ✅ Anchored |
-| **Test suite** | **1,006 tests passing** |
-| PArtner Bank | ⏳ Credentials pending |
-| pip install pay-protocol | ⏳ Coming |
-| v1.0.0 stable | ⏳ Planned |
+| Repo | Purpose | License |
+|---|---|---|
+| [`dnsofmoney/dns-of-money`](https://github.com/dnsofmoney/dns-of-money) | FAS-1 spec, integration docs, schemas (this repo) | MIT |
+| [`dnsofmoney/a2a-protocol-core`](https://github.com/dnsofmoney/a2a-protocol-core) | A2A protocol core — agent-to-agent commerce | Apache 2.0 |
 
 ---
 
-## Self-Hosted
+## API Reference
 
-```bash
-git clone https://github.com/dnsofmoney/dns-of-money.git
-cd dns-of-money
-cp .env.example .env
-docker-compose up -d
-```
+Base URL: `https://api.dnsofmoney.com`
 
-API docs at `http://localhost:8000/docs`
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/v1/resolve/{alias}` | Resolve a `pay:` alias to payment endpoints |
+| `GET` | `/v1/aliases/available/{name}` | Check alias availability |
+| `POST` | `/v1/aliases/register` | Register a new `pay:` alias |
+| `GET` | `/v1/aliases/founding/remaining` | Founding tier spots remaining |
+| `GET` | `/health` | API health check |
+
+Full API docs: [api.dnsofmoney.com/docs](https://api.dnsofmoney.com/docs)
+
+Authentication: `X-API-Key` header required for all write operations.
 
 ---
 
-## Links
+## Current State vs. Roadmap
 
-- **API:** [api.dnsofmoney.com](https://api.dnsofmoney.com)
-- **Website:** [dnsofmoney.com](https://dnsofmoney.com)
-- **Spec:** [FAS-1 v0.2](docs/FAS-1.md)
-- **A2A Protocol:** [a2a-protocol-core](https://github.com/dnsofmoney/a2a-protocol-core)
-- **X:** [@dnsofmoney](https://x.com/dnsofmoney)
-- **LinkedIn:** [DNS of Money](https://linkedin.com/company/dnsofmoney)
+### Live Today ✅
+- `pay:` alias registration and resolution (6-stage pipeline)
+- XRPL payment rail (mainnet, proven)
+- ACH integration (sandbox)
+- OFAC sanctions screening
+- ISO 20022 hint generation
+- Founding tier (500-name hard cap, on-chain proof)
+- 41 root namespaces anchored on XRPL mainnet
+- EC2 deployment, HTTPS live (`api.dnsofmoney.com`)
+- 999 tests passing
+
+### Roadmap 🗺️
+- FedNow production integration (pending banking partner)
+- SDK packages (Python, TypeScript, Go)
+- LangChain / CrewAI / AutoGPT integration modules
+- Subdomain delegation (hierarchical namespace tree)
+- Resolution fee pricing
+- Token economics and governance
+
+---
+
+## FAS-1 Spec
+
+The Financial Address Standard 1 (FAS-1) is the open protocol specification underlying `pay:` URIs. It is licensed under CC BY 4.0 — free to implement, extend, and build on.
+
+Key properties:
+- Rail-agnostic: one alias resolves to N endpoints, ordered by policy
+- ISO 20022 aligned: every resolution carries a message family hint
+- On-chain anchored: namespace ownership is verifiable on XRPL mainnet
+- AP2/A2A/MCP compatible: designed for agentic commerce from day one
+
+Read the spec: [`docs/FAS-1-spec.md`](docs/FAS-1-spec.md)
+
+---
+
+## Contributing
+
+This repo is the public home of the FAS-1 specification and integration documentation. We welcome:
+
+- Issues: spec clarifications, edge cases, implementation questions
+- PRs: integration examples, documentation improvements, schema refinements
+- Discussions: use cases, protocol extensions, competing approaches
+
+For protocol-level proposals, open an issue with the `[RFC]` prefix.
 
 ---
 
 ## License
 
-MIT License — see [LICENSE](LICENSE)
-
-FAS-1 specification: CC BY 4.0
+- Protocol specification (`docs/`): [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- Code examples and schemas: [MIT](LICENSE)
 
 ---
 
-*DNS of Money — The infrastructure layer the agentic economy is missing.*
-*Built by JD + Claude — March 2026*
+## Community
+
+- **Reddit:** [r/DNSofMoney](https://www.reddit.com/r/DNSofMoney/)
+- **Twitter/X:** [@dnsofmoney](https://twitter.com/dnsofmoney)
+- **Website:** [dnsofmoney.com](https://dnsofmoney.com)
+
+---
+
+<p align="center">
+  <strong>Financial orchestration infrastructure for the machine economy.</strong><br>
+  Payments. AI agents. Autonomous commerce.<br>
+  <em>We are not a bank. We are the layer above it.</em>
+</p>
