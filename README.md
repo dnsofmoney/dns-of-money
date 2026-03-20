@@ -1,5 +1,7 @@
 # dns://money — Financial Address Resolution for the Machine Economy
 
+> *"In another time's forgotten space"* — Franklin's Tower, Grateful Dead
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![FAS-1 Spec](https://img.shields.io/badge/spec-FAS--1%20v0.2-green)](docs/FAS-1-spec.md)
 [![XRPL Anchored](https://img.shields.io/badge/XRPL-anchored%20on--chain-blue)](https://xrpl.org)
@@ -450,4 +452,11 @@ For protocol-level proposals, open an issue with the `[RFC]` prefix.
   <strong>Financial orchestration infrastructure for the machine economy.</strong><br>
   Payments. AI agents. Autonomous commerce.<br>
   <em>We are not a bank. We are the layer above it.</em>
+</p>
+
+---
+
+<p align="center">
+  <em>"If you plant ice, you're gonna harvest wind."</em><br>
+  — Franklin's Tower, Grateful Dead
 </p>

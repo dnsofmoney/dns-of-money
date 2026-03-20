@@ -1,7 +1,9 @@
 # FAS-1: Financial Address Standard
 ## `pay:` URI Scheme — Namespace, Resolution, and Anchoring Protocol
 
-**Specification:** FAS-1  
+> *"There is a road, no simple highway"* — Ripple, Grateful Dead
+
+**Specification:** FAS-1
 **Version:** v0.2  
 **Status:** Draft  
 **Date:** 2026-03-19  
@@ -667,6 +669,13 @@ Full anchor inventory with TX hashes: [NAMESPACE-REGISTRY.md](NAMESPACE-REGISTRY
 
 ---
 
-*FAS-1 v0.2 Draft · DNS of Money Project · CC BY 4.0*  
-*Financial orchestration infrastructure for the machine economy.*  
+*FAS-1 v0.2 Draft · DNS of Money Project · CC BY 4.0*
+*Financial orchestration infrastructure for the machine economy.*
 *We are not a bank. We are the layer above it.*
+
+---
+
+<p align="center">
+  <em>"In Franklin's tower the four winds sleep."</em><br>
+  — Franklin's Tower, Grateful Dead
+</p>
