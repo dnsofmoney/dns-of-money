@@ -276,15 +276,26 @@ The first **500** `pay:` names are available at **5 XRP** flat — permanently g
 
 ## Proof of Work
 
-This is not vaporware. On **March 13, 2026** we executed the first confirmed AI-to-AI payments on the XRP Ledger mainnet:
+This is not vaporware. The transactions below are real. The XRPL ones are publicly verifiable by anyone — no login, no trust required.
 
-| TX | Time | Direction | Amount | Rail | Status |
+### XRPL Mainnet — Publicly Verifiable On-Chain
+
+| TX | Time (UTC) | Direction | Amount | Ledger | Hash |
 |---|---|---|---|---|---|
-| TX1 | 4:44 AM EDT | Claude → GPT-4 | $0.69 USD in XRP | XRPL | `tesSUCCESS` |
-| TX2 | 4:20 PM EDT | GPT-4 → Claude | $4.20 USD in XRP | XRPL | `tesSUCCESS` |
-| TX3 | 9:45 AM UTC March 15 | Claude → GPT-4 | $0.69 | Column ACH | Confirmed |
+| TX1 | 08:44 Mar 13 2026 | Claude → GPT-4 | $0.69 in XRP | 102837427 | [`B92C23BA...`](https://livenet.xrpl.org/transactions/B92C23BADE5864569F82BB65B60F84D3B6A8C59A75FC1E75B3DF2A5121A4DA77) |
+| TX2 | 20:20 Mar 13 2026 | GPT-4 → Claude | $4.20 in XRP | 102849264 | [`EB8F2C20...`](https://livenet.xrpl.org/transactions/EB8F2C203D021B10018A2A1E857DA07EC29DBB127741D5320E30291B3D9EB197) |
 
-Bidirectional AI payment rail. On-chain. Permanent. Verifiable.
+Click either hash. It's on the ledger. Permanent.
+
+### Column ACH — Traditional Banking Rail Confirmed
+
+| TX | Time (UTC) | Description | Transaction ID | Status |
+|---|---|---|---|---|
+| TX3 | 09:45 Mar 15 2026 | Claude → GPT-4 compute services | `acht_3AybmiRrSDNCmOtONX1yfPjiYUw` | Settled |
+
+Column ACH operates on a private banking rail — no public explorer. The transaction ID is the canonical record. This confirms the traditional rails work alongside the blockchain rails.
+
+Bidirectional AI payment rail: proven. First inter-AI payments on XRPL mainnet and ACH. On-chain where possible, verifiable where not.
 
 ---
 
