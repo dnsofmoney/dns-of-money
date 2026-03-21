@@ -337,6 +337,32 @@ No banking license required to use this protocol.
 
 ---
 
+## SDK
+
+Official client libraries for the DNS of Money API. No external dependencies — stdlib only.
+
+- **Python:** `pip install dnsofmoney` *(coming soon — [install from source](sdk/python/README.md))*
+- **TypeScript:** `npm install dnsofmoney` *(coming soon — [build from source](sdk/typescript/README.md))*
+
+```python
+from dnsofmoney import resolve
+
+result = resolve("pay:vendor.alpha")
+print(result.endpoints[0].rail)
+```
+
+```typescript
+import { resolve } from "dnsofmoney";
+
+const result = await resolve("pay:vendor.alpha");
+console.log(result.endpoints[0].rail);
+```
+
+- [Python SDK docs](sdk/python/README.md)
+- [TypeScript SDK docs](sdk/typescript/README.md)
+
+---
+
 ## Repository Structure
 
 ```
@@ -352,6 +378,9 @@ dns-of-money/
 ├── schemas/
 │   ├── resolution-response.json   # JSON Schema for resolution response
 │   └── registration-request.json  # JSON Schema for registration
+├── sdk/
+│   ├── python/                # Python SDK (pip install dnsofmoney)
+│   └── typescript/            # TypeScript SDK (npm install dnsofmoney)
 └── CHANGELOG.md
 ```
 

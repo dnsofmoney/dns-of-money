@@ -1,0 +1,23 @@
+{
+  "name": "dnsofmoney",
+  "version": "0.2.0",
+  "description": "DNS of Money — pay: alias resolution SDK",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "echo 'Tests coming soon'"
+  },
+  "keywords": ["payments", "dns", "fintech", "xrpl", "iso20022", "fas-1"],
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dnsofmoney/dns-of-money"
+  },
+  "homepage": "https://dnsofmoney.com"
+}
