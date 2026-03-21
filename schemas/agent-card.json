@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://spec.dnsofmoney.com/fas-1/agent-card.json",
+  "title": "AP2/A2A-003 Agent Card",
+  "description": "Agent capability manifest following the A2A-003 specification. Returned from /.well-known/agent.json. Describes what an agent can do, which protocols it speaks, and how to pay it.",
+  "type": "object",
+  "required": ["agent_id", "name", "endpoint"],
+  "properties": {
+    "agent_id": {
+      "type": "string",
+      "description": "Unique identifier for this agent (e.g., 'AGT-DNS-MONEY-001')."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable agent name (e.g., 'DNS of Money Resolution Agent')."
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of what this agent does."
+    },
+    "endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URL for the agent's API (e.g., 'https://api.dnsofmoney.com')."
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "List of high-level capabilities this agent supports.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "RESOLVE_ALIAS",
+          "REGISTER_ALIAS",
+          "CHECK_AVAILABILITY",
+          "PAYMENT_ROUTING",
+          "COMPLIANCE_SCREENING",
+          "ISO20022_GENERATION"
+        ]
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "description": "How to authenticate with this agent.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["api_key", "oauth2", "none"],
+          "description": "Authentication method."
+        },
+        "header": {
+          "type": "string",
+          "description": "HTTP header name for the credential (e.g., 'X-API-Key')."
+        }
+      }
+    },
+    "domains": {
+      "type": "array",
+      "description": "Business domains this agent operates in.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "PAYMENTS",
+          "FINANCIAL_INFRASTRUCTURE",
+          "IDENTITY",
+          "COMPLIANCE",
+          "COMMERCE"
+        ]
+      }
+    },
+    "message_types": {
+      "type": "array",
+      "description": "ISO 20022 message families this agent can produce or consume.",
+      "items": {
+        "type": "string"
+      },
+      "examples": [["pacs.008", "pain.001", "pacs.002"]]
+    },
+    "input_schemas": {
+      "type": "array",
+      "description": "JSON Schema references for accepted input formats.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "uri": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "output_schemas": {
+      "type": "array",
+      "description": "JSON Schema references for output formats this agent produces.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "uri": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "description": "MCP-compatible tool definitions this agent exposes.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Tool name (e.g., 'resolve_alias')."
+          },
+          "description": {
+            "type": "string",
+            "description": "What this tool does."
+          },
+          "input_schema": {
+            "type": "object",
+            "description": "JSON Schema for the tool's input parameters."
+          }
+        }
+      }
+    },
+    "max_latency_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum expected response latency in milliseconds."
+    },
+    "protocol_versions": {
+      "type": "object",
+      "description": "Protocol versions this agent supports.",
+      "properties": {
+        "fas1": {
+          "type": "string",
+          "description": "FAS-1 spec version (e.g., '0.2')."
+        },
+        "a2a": {
+          "type": "string",
+          "description": "A2A protocol version."
+        },
+        "ap2": {
+          "type": "string",
+          "description": "AP2 protocol version."
+        }
+      }
+    }
+  }
+}

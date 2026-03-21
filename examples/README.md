@@ -1,75 +1,66 @@
-# Examples
+# DNS of Money — Examples
 
-## Resolve an alias
-
-```bash
-curl -H "X-API-Key: your_key" \
-  https://api.dnsofmoney.com/api/v1/resolve/pay:vendor.alpha
-```
-
-**Response:**
-```json
-{
-  "alias_name": "pay:vendor.alpha",
-  "display_name": "Alpha Vendors LLC",
-  "preferred_rail": "fednow",
-  "account_type": "checking",
-  "is_active": true,
-  "resolved": true
-}
-```
-
-## Register an alias
+Quickstart — resolve a `pay:` alias in one line:
 
 ```bash
-curl -X POST https://api.dnsofmoney.com/api/v1/aliases \
-  -H "X-API-Key: your_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "alias_name": "pay:your.name",
-    "preferred_rail": "fednow",
-    "routing_number": "021000021",
-    "account_number": "9999999999"
-  }'
+curl -s https://api.dnsofmoney.com/v1/resolve/pay:vendor.alpha | python3 -m json.tool
 ```
 
-## Python SDK
+## Examples
 
-```python
-from sdk import PayClient
+### Python
 
-client = PayClient(api_key="your_key")
-
-# Resolve
-result = client.resolve("pay:vendor.alpha")
-print(f"{result.alias_name} → {result.preferred_rail}")
-
-# Check availability
-status = client.check_availability("pay:my.name")
-print(f"Status: {status}")
-
-# Register
-if status == "available":
-    alias = client.register(
-        alias_name="pay:my.name",
-        preferred_rail="fednow",
-        routing_number="021000021",
-        account_number="9876543210",
-        display_name="My Company LLC"
-    )
-    print(f"Registered: {alias.alias_name}")
-```
-
-## Health check (no auth)
+| File | Description |
+|------|-------------|
+| [`python/resolve.py`](python/resolve.py) | Resolve a `pay:` alias to payment endpoints. Handles 404, reads entity info, endpoints, and ISO 20022 hints. |
+| [`python/register.py`](python/register.py) | Register a new `pay:` alias. Checks availability first, handles 409 (taken) and 422 (invalid format). |
 
 ```bash
-curl https://api.dnsofmoney.com/health
+# Resolve (no auth required for basic resolution)
+python examples/python/resolve.py
+
+# Register (requires API key)
+API_KEY=fas_live_... python examples/python/register.py
 ```
 
-```json
-{
-  "status": "healthy",
-  "service": "financial-autonomy-stack",
-  "version": "0.1.0"
-}
+Requirements: `pip install requests`
+
+### TypeScript
+
+| File | Description |
+|------|-------------|
+| [`typescript/resolve.ts`](typescript/resolve.ts) | Resolve a `pay:` alias using `fetch()`. Includes full TypeScript types for the resolution response. |
+
+```bash
+npx tsx examples/typescript/resolve.ts
 ```
+
+No external dependencies — uses built-in `fetch()`.
+
+### curl
+
+| File | Description |
+|------|-------------|
+| [`curl/resolve.sh`](curl/resolve.sh) | One-liner to resolve `pay:vendor.alpha` |
+| [`curl/register.sh`](curl/register.sh) | Register a new alias (requires API key) |
+| [`curl/agent_card.sh`](curl/agent_card.sh) | Fetch the AP2/A2A-003 agent capability manifest |
+
+## JSON Schemas
+
+Machine-readable schemas for request/response validation:
+
+| Schema | Description |
+|--------|-------------|
+| [`schemas/resolution-response.json`](../schemas/resolution-response.json) | Full `ResolutionResponse` schema (draft-07) |
+| [`schemas/alias-registration.json`](../schemas/alias-registration.json) | Alias registration request body |
+| [`schemas/agent-card.json`](../schemas/agent-card.json) | AP2/A2A-003 agent card |
+
+## Specification
+
+Full protocol spec: [`docs/FAS-1-spec.md`](../docs/FAS-1-spec.md)
+
+## Base URL
+
+All examples use `https://api.dnsofmoney.com` as the base URL.
+
+Authentication: `X-API-Key` header. Required for write operations (register, update). Optional for read operations (resolve, availability check) — unauthenticated requests receive tier-0 (public) responses with some fields redacted.

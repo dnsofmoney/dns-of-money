@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://spec.dnsofmoney.com/fas-1/alias-registration.json",
+  "title": "FAS-1 Alias Registration Request",
+  "description": "Request body for POST /v1/aliases — registers a new pay: alias in the DNS of Money registry.",
+  "type": "object",
+  "required": ["alias_name", "display_name", "preferred_rail"],
+  "properties": {
+    "alias_name": {
+      "type": "string",
+      "pattern": "^pay:[a-z0-9][a-z0-9\\-]*(\\.[a-z0-9][a-z0-9\\-]*)+$",
+      "maxLength": 128,
+      "description": "The pay: URI to register. Must follow FAS-1 format: pay:{namespace}.{identifier}. Lowercase only, dots are hierarchy separators."
+    },
+    "display_name": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Human-readable name shown during resolution (e.g., 'Alpha Vendors LLC')."
+    },
+    "preferred_rail": {
+      "type": "string",
+      "enum": ["ach", "fednow", "swift", "xrpl", "card"],
+      "description": "The preferred payment rail for this alias. Determines which endpoint is returned as the top-priority option."
+    },
+    "routing_number": {
+      "type": "string",
+      "pattern": "^[0-9]{9}$",
+      "description": "9-digit ABA routing number. Required for ACH and FedNow rails."
+    },
+    "account_number": {
+      "type": "string",
+      "description": "Bank account number. Required for ACH and FedNow rails."
+    },
+    "account_type": {
+      "type": "string",
+      "enum": ["checking", "savings"],
+      "default": "checking",
+      "description": "Bank account type. Defaults to 'checking'."
+    },
+    "xrpl_address": {
+      "type": "string",
+      "pattern": "^r[1-9A-HJ-NP-Za-km-z]{24,34}$",
+      "description": "XRPL r-address. Required for XRPL rail. Also required for founding tier registration as the registrant wallet."
+    },
+    "wallet_address": {
+      "type": "string",
+      "description": "Generic blockchain wallet address. Used for non-XRPL crypto rails (e.g., Solana)."
+    },
+    "destination_tag": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "XRPL destination tag. Optional, used when multiple users share one XRPL address."
+    }
+  },
+  "if": {
+    "properties": {
+      "preferred_rail": { "enum": ["ach", "fednow"] }
+    }
+  },
+  "then": {
+    "required": ["routing_number", "account_number"]
+  }
+}

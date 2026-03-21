@@ -1,0 +1,212 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://spec.dnsofmoney.com/fas-1/resolution-response.json",
+  "title": "FAS-1 Resolution Response",
+  "description": "The response returned when resolving a pay: alias via GET /v1/resolve/{alias}. Contains entity info, ranked payment endpoints, ISO 20022 hints, and compliance signals.",
+  "type": "object",
+  "required": ["alias", "resolved", "resolved_at", "ttl_seconds", "endpoints"],
+  "properties": {
+    "resolution_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this resolution event. Maps to EndToEndId in downstream ISO 20022 messages."
+    },
+    "alias": {
+      "type": "string",
+      "pattern": "^pay:[a-z0-9]",
+      "description": "The pay: URI that was resolved (e.g., 'pay:vendor.alpha')."
+    },
+    "resolved": {
+      "type": "boolean",
+      "description": "True if the alias is active and has at least one valid endpoint."
+    },
+    "resolution_status": {
+      "type": "string",
+      "enum": ["resolved", "partial", "failed"],
+      "description": "Granular resolution outcome. 'resolved' = full success, 'partial' = some endpoints unavailable, 'failed' = alias not found or blocked."
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when this resolution was performed."
+    },
+    "resolved_from": {
+      "type": "string",
+      "enum": ["origin", "cache"],
+      "description": "Whether this response was served from the origin database or from cache. Also returned as the X-Resolved-From HTTP header."
+    },
+    "ttl_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How long this resolution is valid for caching, in seconds. Re-resolve after TTL expiry."
+    },
+    "caller_tier": {
+      "type": "integer",
+      "enum": [0, 1, 2, 3],
+      "description": "The caller's auth tier, which determines field visibility. 0 = public (most redacted), 3 = full access (no redaction)."
+    },
+    "entity": {
+      "type": "object",
+      "description": "Information about the entity that owns this alias.",
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "description": "Human-readable name of the alias owner (e.g., 'Alpha Vendors LLC')."
+        },
+        "entity_type": {
+          "type": "string",
+          "enum": ["vendor", "agent", "bank", "platform", "user", "contract", "enterprise", "dev", "ai", "dao"],
+          "description": "The namespace category this alias belongs to."
+        },
+        "jurisdiction": {
+          "type": "string",
+          "description": "ISO 3166-1 alpha-2 country code of the entity's jurisdiction (e.g., 'US')."
+        },
+        "kyc_status": {
+          "type": "string",
+          "enum": ["verified", "pending", "unverified"],
+          "description": "Know Your Customer verification status."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["founding", "standard", "enterprise"],
+          "description": "Registration tier. Founding = first 500 names at 5 XRP."
+        }
+      }
+    },
+    "endpoints": {
+      "type": "array",
+      "description": "Ranked list of payment endpoints. Ordered by priority (1 = highest).",
+      "items": {
+        "type": "object",
+        "required": ["rail", "priority"],
+        "properties": {
+          "rail": {
+            "type": "string",
+            "enum": ["ach", "fednow", "swift", "xrpl", "solana", "card", "rlusd"],
+            "description": "The payment rail for this endpoint."
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code (e.g., 'USD', 'XRP')."
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Priority rank. 1 = most preferred."
+          },
+          "fee_estimate": {
+            "type": "string",
+            "description": "Estimated fee for using this endpoint (e.g., '0.045')."
+          },
+          "settlement_latency": {
+            "type": "string",
+            "description": "Expected settlement time (e.g., 'instant', '3-5s', '1-3 days')."
+          },
+          "routing_metadata": {
+            "type": "object",
+            "description": "Rail-specific routing details. Redacted at lower caller tiers.",
+            "properties": {
+              "routing_number": {
+                "type": "string",
+                "description": "ABA routing number (ACH/FedNow)."
+              },
+              "account_number": {
+                "type": "string",
+                "description": "Bank account number (ACH/FedNow). Redacted at tier < 3."
+              },
+              "xrpl_address": {
+                "type": "string",
+                "description": "XRPL r-address."
+              },
+              "destination_tag": {
+                "type": "integer",
+                "description": "XRPL destination tag."
+              }
+            }
+          }
+        }
+      }
+    },
+    "compliance": {
+      "type": "object",
+      "description": "Compliance screening status for this alias.",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["clear", "pending", "blocked"],
+          "description": "'clear' = no sanctions hit, 'pending' = screening in progress, 'blocked' = OFAC/sanctions match."
+        },
+        "screened_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the last compliance screening was performed."
+        },
+        "travel_rule_required": {
+          "type": "boolean",
+          "description": "True if payments to this alias exceed Travel Rule thresholds."
+        }
+      }
+    },
+    "iso20022_hint": {
+      "type": "object",
+      "description": "ISO 20022 message construction hints for the preferred rail.",
+      "properties": {
+        "message_type": {
+          "type": "string",
+          "description": "Target ISO 20022 message family (e.g., 'pacs.008', 'pain.001')."
+        },
+        "service_level": {
+          "type": "string",
+          "description": "ISO 20022 SvcLvl/Cd value (e.g., 'SEPA')."
+        },
+        "local_instrument": {
+          "type": "string",
+          "description": "ISO 20022 LclInstrm/Cd value (e.g., 'INST')."
+        },
+        "charge_bearer": {
+          "type": "string",
+          "description": "ISO 20022 ChrgBr value (e.g., 'SLEV')."
+        }
+      }
+    },
+    "agent_commerce": {
+      "type": "object",
+      "description": "AP2 compatibility block for agent-to-agent commerce. Present when the alias owner has registered agent capabilities.",
+      "properties": {
+        "agent_id": {
+          "type": "string",
+          "description": "Unique agent identifier."
+        },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of agent capabilities (e.g., 'compute', 'storage')."
+        },
+        "payment_alias": {
+          "type": "string",
+          "description": "The pay: alias bound to this agent."
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Non-fatal warnings about this resolution (e.g., stale compliance data, degraded rail).",
+      "items": {
+        "type": "string"
+      }
+    },
+    "error_code": {
+      "type": "string",
+      "enum": [
+        "ALIAS_NOT_FOUND",
+        "ALIAS_INACTIVE",
+        "COMPLIANCE_BLOCKED",
+        "COMPLIANCE_PENDING",
+        "INVALID_ALIAS_FORMAT",
+        "RATE_LIMITED"
+      ],
+      "description": "Present only when resolved=false. Indicates why resolution failed."
+    }
+  }
+}
