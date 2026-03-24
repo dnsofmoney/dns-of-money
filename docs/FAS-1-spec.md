@@ -1,7 +1,7 @@
 # FAS-1: Financial Address Standard
 ## `pay:` URI Scheme — Namespace, Resolution, and Anchoring Protocol
 
-> *"There is a road, no simple highway"* — Ripple, Grateful Dead
+> *"There is a road, no simple highway"*
 
 **Specification:** FAS-1
 **Version:** v0.2  
