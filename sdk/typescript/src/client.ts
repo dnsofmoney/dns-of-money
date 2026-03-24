@@ -23,6 +23,7 @@ import type {
   Compliance,
   Endpoint,
   Entity,
+  Identity,
   RegistrationResponse,
   ResolutionResponse,
 } from "./models";
@@ -56,7 +57,8 @@ export class DNSOfMoneyClient {
    * @throws {AliasNotFoundError} If the alias does not exist.
    */
   async resolve(aliasUri: string): Promise<ResolutionResponse> {
-    const data = await this.get(`/v1/resolve/${aliasUri}`);
+    const raw = await this.get(`/resolve/${aliasUri}`);
+    const data = raw.success !== undefined ? (raw.data ?? raw) : raw;
     return parseResolution(data);
   }
 
@@ -228,6 +230,7 @@ export async function checkAvailability(
 // ── Response parsing ──────────────────────────────────────────────────────
 
 function parseResolution(data: Record<string, any>): ResolutionResponse {
+  // Entity — may be nested object or top-level fields
   let entity: Entity | undefined;
   if (data.entity) {
     entity = {
@@ -236,26 +239,80 @@ function parseResolution(data: Record<string, any>): ResolutionResponse {
       jurisdiction: data.entity.jurisdiction,
       kyc_status: data.entity.kyc_status,
     };
+  } else if (data.display_name) {
+    entity = {
+      display_name: data.display_name ?? "",
+      entity_type: data.entity_type,
+    };
   }
 
-  const endpoints: Endpoint[] = (data.endpoints ?? []).map(
-    (ep: Record<string, any>) => ({
-      rail: ep.rail ?? "",
+  // Endpoints — handle both flat array and preferred_endpoint + fallback
+  const endpoints: Endpoint[] = [];
+  if (data.preferred_endpoint) {
+    const ep = data.preferred_endpoint;
+    endpoints.push({
+      rail: ep.rail_type ?? ep.rail ?? "",
       currency: ep.currency ?? "USD",
       address: ep.address,
       priority: ep.priority ?? 1,
       fee_estimate: ep.fee_estimate,
       settlement_latency: ep.settlement_latency,
       routing_metadata: ep.routing_metadata,
-    })
-  );
+    });
+    for (const fb of data.fallback_endpoints ?? []) {
+      endpoints.push({
+        rail: fb.rail_type ?? fb.rail ?? "",
+        currency: fb.currency ?? "USD",
+        address: fb.address,
+        priority: fb.priority ?? 2,
+        fee_estimate: fb.fee_estimate,
+        settlement_latency: fb.settlement_latency,
+        routing_metadata: fb.routing_metadata,
+      });
+    }
+  } else {
+    for (const ep of data.endpoints ?? []) {
+      endpoints.push({
+        rail: ep.rail ?? "",
+        currency: ep.currency ?? "USD",
+        address: ep.address,
+        priority: ep.priority ?? 1,
+        fee_estimate: ep.fee_estimate,
+        settlement_latency: ep.settlement_latency,
+        routing_metadata: ep.routing_metadata,
+      });
+    }
+  }
 
+  // Compliance
   let compliance: Compliance | undefined;
   if (data.compliance) {
+    const c = data.compliance;
     compliance = {
-      sanctions_checked: data.compliance.sanctions_checked ?? false,
-      fatf_risk_rating: data.compliance.fatf_risk_rating,
-      requires_purpose_code: data.compliance.requires_purpose_code ?? false,
+      sanctions_checked: c.sanctions_checked ?? c.screened ?? false,
+      fatf_risk_rating: c.fatf_risk_rating,
+      requires_purpose_code: c.requires_purpose_code ?? false,
+      screened: c.screened,
+      result: c.result,
+      provider: c.provider,
+      screened_at: c.screened_at,
+      cached: c.cached,
+    };
+  }
+
+  // Identity (NFT + generative art)
+  let identity: Identity | undefined;
+  if (data.identity) {
+    const i = data.identity;
+    identity = {
+      nft_token_id: i.nft_token_id,
+      image_uri: i.image_uri,
+      metadata_uri: i.metadata_uri,
+      image_url: i.image_url,
+      nft_explorer_url: i.nft_explorer_url,
+      generation: i.generation,
+      identity_status: i.identity_status,
+      tier: i.tier,
     };
   }
 
@@ -264,13 +321,18 @@ function parseResolution(data: Record<string, any>): ResolutionResponse {
     alias_uri: data.alias ?? "",
     resolved_at: data.resolved_at ?? "",
     ttl_seconds: data.ttl_seconds ?? 300,
+    message_id: data.message_id,
+    entity_id: data.entity_id,
     entity,
     endpoints,
     compliance,
     iso20022_hint: data.iso20022_hint,
-    resolution_status: data.resolution_status ?? "resolved",
+    identity,
+    rail_score: data.rail_score,
+    resolution_status: data.status ?? data.resolution_status ?? "resolved",
     caller_tier: data.caller_tier,
     resolved_from: data.resolved_from ?? "origin",
+    cache_hit: data.cache_hit ?? false,
     agent_commerce: data.agent_commerce,
     warnings: data.warnings ?? [],
   };

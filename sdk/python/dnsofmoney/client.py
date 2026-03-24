@@ -35,6 +35,7 @@ from .models import (
     Compliance,
     Endpoint,
     Entity,
+    Identity,
     RegistrationResponse,
     ResolutionResponse,
 )
@@ -82,7 +83,8 @@ class DNSOfMoneyClient:
         Raises:
             AliasNotFoundError: If the alias does not exist.
         """
-        data = self._get(f"/v1/resolve/{alias_uri}")
+        raw = self._get(f"/resolve/{alias_uri}")
+        data = raw.get("data", raw) if raw.get("success") is not None else raw
         return _parse_resolution(data)
 
     def register(
@@ -233,6 +235,7 @@ def check_availability(
 
 def _parse_resolution(data: dict[str, Any]) -> ResolutionResponse:
     """Parse a raw JSON dict into a typed ResolutionResponse."""
+    # Entity — may be a nested object or top-level fields
     entity = None
     if data.get("entity"):
         e = data["entity"]
@@ -242,12 +245,19 @@ def _parse_resolution(data: dict[str, Any]) -> ResolutionResponse:
             jurisdiction=e.get("jurisdiction"),
             kyc_status=e.get("kyc_status"),
         )
+    elif data.get("display_name"):
+        entity = Entity(
+            display_name=data.get("display_name", ""),
+            entity_type=data.get("entity_type"),
+        )
 
+    # Endpoints — handle both flat array and preferred_endpoint + fallback
     endpoints = []
-    for ep in data.get("endpoints", []):
+    if data.get("preferred_endpoint"):
+        ep = data["preferred_endpoint"]
         endpoints.append(
             Endpoint(
-                rail=ep.get("rail", ""),
+                rail=ep.get("rail_type", ep.get("rail", "")),
                 currency=ep.get("currency", "USD"),
                 address=ep.get("address"),
                 priority=ep.get("priority", 1),
@@ -256,14 +266,60 @@ def _parse_resolution(data: dict[str, Any]) -> ResolutionResponse:
                 routing_metadata=ep.get("routing_metadata"),
             )
         )
+        for fb in data.get("fallback_endpoints", []):
+            endpoints.append(
+                Endpoint(
+                    rail=fb.get("rail_type", fb.get("rail", "")),
+                    currency=fb.get("currency", "USD"),
+                    address=fb.get("address"),
+                    priority=fb.get("priority", 2),
+                    fee_estimate=fb.get("fee_estimate"),
+                    settlement_latency=fb.get("settlement_latency"),
+                    routing_metadata=fb.get("routing_metadata"),
+                )
+            )
+    else:
+        for ep in data.get("endpoints", []):
+            endpoints.append(
+                Endpoint(
+                    rail=ep.get("rail", ""),
+                    currency=ep.get("currency", "USD"),
+                    address=ep.get("address"),
+                    priority=ep.get("priority", 1),
+                    fee_estimate=ep.get("fee_estimate"),
+                    settlement_latency=ep.get("settlement_latency"),
+                    routing_metadata=ep.get("routing_metadata"),
+                )
+            )
 
+    # Compliance
     compliance = None
     if data.get("compliance"):
         c = data["compliance"]
         compliance = Compliance(
-            sanctions_checked=c.get("sanctions_checked", False),
+            sanctions_checked=c.get("sanctions_checked", c.get("screened", False)),
             fatf_risk_rating=c.get("fatf_risk_rating"),
             requires_purpose_code=c.get("requires_purpose_code", False),
+            screened=c.get("screened"),
+            result=c.get("result"),
+            provider=c.get("provider"),
+            screened_at=c.get("screened_at"),
+            cached=c.get("cached"),
+        )
+
+    # Identity (NFT + generative art)
+    identity = None
+    if data.get("identity"):
+        i = data["identity"]
+        identity = Identity(
+            nft_token_id=i.get("nft_token_id"),
+            image_uri=i.get("image_uri"),
+            metadata_uri=i.get("metadata_uri"),
+            image_url=i.get("image_url"),
+            nft_explorer_url=i.get("nft_explorer_url"),
+            generation=i.get("generation"),
+            identity_status=i.get("identity_status"),
+            tier=i.get("tier"),
         )
 
     return ResolutionResponse(
@@ -271,13 +327,18 @@ def _parse_resolution(data: dict[str, Any]) -> ResolutionResponse:
         alias_uri=data.get("alias", ""),
         resolved_at=data.get("resolved_at", ""),
         ttl_seconds=data.get("ttl_seconds", 300),
+        message_id=data.get("message_id"),
+        entity_id=data.get("entity_id"),
         entity=entity,
         endpoints=endpoints,
         compliance=compliance,
         iso20022_hint=data.get("iso20022_hint"),
-        resolution_status=data.get("resolution_status", "resolved"),
+        identity=identity,
+        rail_score=data.get("rail_score"),
+        resolution_status=data.get("status", data.get("resolution_status", "resolved")),
         caller_tier=data.get("caller_tier"),
         resolved_from=data.get("resolved_from", "origin"),
+        cache_hit=data.get("cache_hit", False),
         agent_commerce=data.get("agent_commerce"),
         warnings=data.get("warnings", []),
     )

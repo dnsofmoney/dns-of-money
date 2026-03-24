@@ -19,6 +19,7 @@ export type {
   Entity,
   Endpoint,
   Compliance,
+  Identity,
   AgentCard,
   ResolutionResponse,
   RegistrationResponse,

@@ -14,6 +14,7 @@ from .models import (
     Compliance,
     Endpoint,
     Entity,
+    Identity,
     RegistrationResponse,
     ResolutionResponse,
 )
@@ -34,7 +35,8 @@ __all__ = [
     "Entity",
     "Endpoint",
     "Compliance",
+    "Identity",
     "AgentCard",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
