@@ -3,7 +3,7 @@
 Quickstart — resolve a `pay:` alias in one line:
 
 ```bash
-curl -s https://api.dnsofmoney.com/v1/resolve/pay:vendor.alpha | python3 -m json.tool
+curl -s https://api.dnsofmoney.com/resolve/pay:vendor.alpha | python3 -m json.tool
 ```
 
 ## Examples

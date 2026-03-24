@@ -170,6 +170,49 @@
         }
       }
     },
+    "identity": {
+      "type": "object",
+      "description": "On-chain identity block. Present at tier 3 for aliases with minted NFT identities.",
+      "properties": {
+        "nft_token_id": {
+          "type": ["string", "null"],
+          "description": "XLS-20 NFT token ID on XRPL mainnet."
+        },
+        "image_uri": {
+          "type": ["string", "null"],
+          "description": "IPFS URI for the generative identity image (ipfs://Qm...)."
+        },
+        "metadata_uri": {
+          "type": ["string", "null"],
+          "description": "IPFS URI for NFT metadata JSON (ipfs://Qm...)."
+        },
+        "image_url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "HTTPS gateway URL for the identity image."
+        },
+        "nft_explorer_url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "XRPL explorer link for the NFT."
+        },
+        "generation": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Genome generation. Increases with each evolution."
+        },
+        "identity_status": {
+          "type": ["string", "null"],
+          "enum": ["pending", "rendering", "uploading", "minting", "complete", "render_failed", "upload_failed", "mint_failed", null],
+          "description": "Current state of the identity pipeline."
+        },
+        "tier": {
+          "type": ["string", "null"],
+          "enum": ["founding", "standard", "enterprise", null],
+          "description": "Registration tier."
+        }
+      }
+    },
     "agent_commerce": {
       "type": "object",
       "description": "AP2 compatibility block for agent-to-agent commerce. Present when the alias owner has registered agent capabilities.",
@@ -188,6 +231,32 @@
           "description": "The pay: alias bound to this agent."
         }
       }
+    },
+    "rail_score": {
+      "type": "object",
+      "description": "Deterministic scoring breakdown for each available rail. Present at tier 3.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "score": {
+            "type": "integer",
+            "description": "Total score for this rail."
+          },
+          "breakdown": {
+            "type": "object",
+            "description": "Individual scoring components.",
+            "additionalProperties": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "cache_hit": {
+      "type": "boolean",
+      "description": "Whether this resolution was served from cache."
+    },
+    "message_id": {
+      "type": "string",
+      "description": "FAS-1 message identifier (e.g., 'FAS-20260324-F1DD9B0D')."
     },
     "warnings": {
       "type": "array",

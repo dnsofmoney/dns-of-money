@@ -73,7 +73,7 @@ async function resolve(
     headers["X-API-Key"] = apiKey;
   }
 
-  const resp = await fetch(`${BASE_URL}/v1/resolve/${alias}`, { headers });
+  const resp = await fetch(`${BASE_URL}/resolve/${alias}`, { headers });
 
   // Handle 404 — alias not found
   if (resp.status === 404) {

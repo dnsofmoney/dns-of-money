@@ -45,7 +45,7 @@ def resolve(alias: str, api_key: str | None = None) -> dict:
     if api_key:
         headers["X-API-Key"] = api_key
 
-    resp = requests.get(f"{BASE_URL}/v1/resolve/{alias}", headers=headers)
+    resp = requests.get(f"{BASE_URL}/resolve/{alias}", headers=headers)
 
     # Handle common error cases
     if resp.status_code == 404:
