@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![FAS-1 Spec](https://img.shields.io/badge/spec-FAS--1%20v0.2-green)](docs/FAS-1-spec.md)
 [![XRPL Anchored](https://img.shields.io/badge/XRPL-anchored%20on--chain-blue)](https://xrpl.org)
-[![Status](https://img.shields.io/badge/status-Phase%206%20active-orange)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/status-Phase%206%20complete-brightgreen)](CHANGELOG.md)
 [![A2A Compatible](https://img.shields.io/badge/A2A-041%20compatible-purple)](https://github.com/dnsofmoney/a2a-protocol-core)
 
 > **We are not a bank. We are the layer above it.**
@@ -142,14 +142,14 @@ Full spec: [`docs/FAS-1-spec.md`](docs/FAS-1-spec.md) · License: CC BY 4.0
 ### Resolve a `pay:` alias
 
 ```bash
-curl https://api.dnsofmoney.com/v1/resolve/pay:vendor.alpha \
+curl https://api.dnsofmoney.com/api/v1/resolve/pay:vendor.alpha \
   -H "X-API-Key: your_key"
 ```
 
 ### Register a `pay:` alias (founding tier)
 
 ```bash
-curl -X POST https://api.dnsofmoney.com/v1/aliases/register \
+curl -X POST https://api.dnsofmoney.com/api/v1/aliases/register \
   -H "X-API-Key: your_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -163,7 +163,7 @@ curl -X POST https://api.dnsofmoney.com/v1/aliases/register \
 ### Check availability
 
 ```bash
-curl https://api.dnsofmoney.com/v1/aliases/available/yourname.here
+curl https://api.dnsofmoney.com/api/v1/aliases/available/yourname.here
 # → { "status": "available" | "taken" | "reserved" }
 ```
 
@@ -195,7 +195,7 @@ import httpx
 async def resolve_payment_alias(alias: str, api_key: str) -> dict:
     async with httpx.AsyncClient() as client:
         r = await client.get(
-            f"https://api.dnsofmoney.com/v1/resolve/{alias}",
+            f"https://api.dnsofmoney.com/api/v1/resolve/{alias}",
             headers={"X-API-Key": api_key}
         )
         return r.json()
@@ -209,7 +209,7 @@ print(result["iso20022_hint"])    # "pacs.008.001.08"
 
 ```typescript
 const resolve = async (alias: string): Promise<ResolutionResponse> => {
-  const res = await fetch(`https://api.dnsofmoney.com/v1/resolve/${alias}`, {
+  const res = await fetch(`https://api.dnsofmoney.com/api/v1/resolve/${alias}`, {
     headers: { "X-API-Key": process.env.DNS_MONEY_API_KEY! }
   });
   return res.json();
@@ -266,13 +266,21 @@ All memo transactions use the FAS-1 format:
 
 ## Founding Tier
 
-The first **500** `pay:` names are available at **5 XRP** flat — permanently grandfathered at founding pricing. One name per XRPL wallet. On-chain proof issued at registration.
+The first **600** `pay:` names are available at **5 XRP** flat — permanently grandfathered at founding pricing. One name per XRPL wallet. On-chain proof issued at registration.
+
+Each founding name includes:
+- A permanent `pay:` alias on XRPL mainnet
+- A unique generative fractal flame identity NFT (XLS-20)
+- IPFS-pinned art and metadata that outlives every server
+- On-chain proof via FAS-1 memo protocol
+
+**12 minted. 588 remaining.** Mint yours at [dnsofmoney.com](https://dnsofmoney.com)
 
 - Founding tier encoded on XRPL mainnet via FAS-1 memo
 - Permanent — cannot be revoked
 - Hard cap enforced atomically: `SELECT ... FOR UPDATE` inside the registration transaction
 
-**Check remaining spots:** `GET /v1/aliases/founding/remaining`
+**Check remaining spots:** `GET /api/api/v1/founding/status`
 
 ---
 
@@ -298,6 +306,16 @@ Click either hash. It's on the ledger. Permanent.
 Column ACH operates on a private banking rail — no public explorer. The transaction ID is the canonical record. This confirms the traditional rails work alongside the blockchain rails.
 
 Bidirectional AI payment rail: proven. First inter-AI payments on XRPL mainnet and ACH. On-chain where possible, verifiable where not.
+
+### Agent Verification — AI-to-API Resolution Proven
+
+| Step | Result | Date |
+|---|---|---|
+| Resolve `pay:genesis` at tier 3 | Full response: entity_id, compliance, ISO hint, agent_commerce, identity block | Mar 24, 2026 |
+| Verify NFT on-chain | NFTokenID confirmed, taxon 420069 (founding), IPFS metadata verified | Mar 24, 2026 |
+| Witness 1 XRP payment | pay:architect → pay:genesis with memo `DNS-OF-MONEY-PROOF` | Mar 24, 2026 |
+
+First external AI agent (Perplexity) to resolve a `pay:` alias, verify on-chain identity, and witness a real payment — end-to-end.
 
 ---
 
@@ -401,10 +419,10 @@ Base URL: `https://api.dnsofmoney.com`
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/v1/resolve/{alias}` | Resolve a `pay:` alias to payment endpoints |
-| `GET` | `/v1/aliases/available/{name}` | Check alias availability |
-| `POST` | `/v1/aliases/register` | Register a new `pay:` alias |
-| `GET` | `/v1/aliases/founding/remaining` | Founding tier spots remaining |
+| `GET` | `/api/v1/resolve/{alias}` | Resolve a `pay:` alias to payment endpoints |
+| `GET` | `/api/v1/aliases/available/{name}` | Check alias availability |
+| `POST` | `/api/v1/aliases/register` | Register a new `pay:` alias |
+| `GET` | `/api/v1/aliases/founding/remaining` | Founding tier spots remaining |
 | `GET` | `/health` | API health check |
 
 Full API docs: [api.dnsofmoney.com/docs](https://api.dnsofmoney.com/docs)
@@ -416,15 +434,23 @@ Authentication: `X-API-Key` header required for all write operations.
 ## Current State vs. Roadmap
 
 ### Live Today ✅
-- `pay:` alias registration and resolution (6-stage pipeline)
+- `pay:` alias registration and resolution (7-stage pipeline with identity evolution)
+- NFT identity system: generative fractal flame art per alias, IPFS-pinned
+- Identity block in resolve response (image, metadata, explorer link)
+- Founding mint page with live counter at [dnsofmoney.com](https://dnsofmoney.com)
+- Claim page: wallet connect via Xaman, burn option
 - XRPL payment rail (mainnet, proven)
 - ACH integration (sandbox)
 - OFAC sanctions screening
 - ISO 20022 hint generation
-- Founding tier (500-name hard cap, on-chain proof)
+- Founding tier (600-name hard cap, 12 minted, on-chain proof)
 - 41 root namespaces anchored on XRPL mainnet
+- Agent verification: first AI agent resolved + verified + witnessed payment
+- Marketing site live at [dnsofmoney.com](https://dnsofmoney.com) with SSL
+- CDN-ready nginx with rate limiting + IPFS proxy
+- AWS SSM secrets management
 - EC2 deployment, HTTPS live (`api.dnsofmoney.com`)
-- 999 tests passing
+- 1405 tests passing
 
 ### Roadmap 🗺️
 - FedNow production integration (pending banking partner)
