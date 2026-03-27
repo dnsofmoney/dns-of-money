@@ -50,6 +50,15 @@
       "type": "integer",
       "minimum": 0,
       "description": "XRPL destination tag. Optional, used when multiple users share one XRPL address."
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["founding", "standard"],
+      "description": "Registration tier. 'founding' requires xrpl_address and payment_tx_hash."
+    },
+    "payment_tx_hash": {
+      "type": "string",
+      "description": "XRPL transaction hash proving the 5 XRP founding fee payment. Required for founding tier."
     }
   },
   "if": {

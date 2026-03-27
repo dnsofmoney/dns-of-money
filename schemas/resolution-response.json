@@ -55,8 +55,8 @@
         },
         "entity_type": {
           "type": "string",
-          "enum": ["vendor", "agent", "bank", "platform", "user", "contract", "enterprise", "dev", "ai", "dao"],
-          "description": "The namespace category this alias belongs to."
+          "enum": ["vendor", "agent", "bank", "platform", "user", "contract", "enterprise", "dev", "ai", "dao", "personal"],
+          "description": "The namespace category this alias belongs to. Single-label aliases default to 'personal'."
         },
         "jurisdiction": {
           "type": "string",

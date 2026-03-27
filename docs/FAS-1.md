@@ -111,13 +111,17 @@ Root namespaces are top-level wildcard identifiers registered and controlled by 
 
 Root namespace registrations are anchored on XRPL mainnet before the FAS-1 open specification is published. Namespace ownership is the registry moat.
 
-### 3.2 Sub-namespace Delegation (Roadmap)
+### 3.2 Entity Type Derivation
+
+For multi-label aliases (e.g., `pay:vendor.alpha`), the `entity_type` is derived from the first label (the namespace). For single-label aliases (e.g., `pay:hempy`), the `entity_type` defaults to `personal`. Single-label aliases are fully eligible for all tiers including founding tier and NFT identity minting.
+
+### 3.3 Sub-namespace Delegation (Roadmap)
 
 Sub-namespace delegation allows a namespace owner to grant registration rights within their namespace to third parties. For example, `pay:bank.acme` could allow Acme Bank to register `pay:bank.acme.*` sub-identifiers for their customers.
 
 Delegation uses a parent-child `Namespace` table in the registry database. This is a Phase 2 feature and is not part of the v0.1 implementation.
 
-### 3.3 Dot Semantics
+### 3.4 Dot Semantics
 
 The dot (`.`) in `pay:` addresses is a **hierarchy separator only**. It does not imply DNS delegation, subdomain semantics, or any network-level routing. All resolution is performed by the FAS-1 registry API.
 
@@ -575,7 +579,7 @@ def is_valid_fas1(alias: str) -> bool:
       "type": "object",
       "properties": {
         "display_name": { "type": "string" },
-        "entity_type": { "type": "string", "enum": ["vendor","agent","bank","platform","user","contract","enterprise","dev","ai","dao"] },
+        "entity_type": { "type": "string", "enum": ["vendor","agent","bank","platform","user","contract","enterprise","dev","ai","dao","personal"] },
         "tier": { "type": "string", "enum": ["founding","standard","enterprise"] }
       }
     },
