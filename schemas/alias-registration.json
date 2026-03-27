@@ -8,9 +8,9 @@
   "properties": {
     "alias_name": {
       "type": "string",
-      "pattern": "^pay:[a-z0-9][a-z0-9\\-]*(\\.[a-z0-9][a-z0-9\\-]*)+$",
+      "pattern": "^pay:[a-z0-9][a-z0-9\\-]*(\\.[a-z0-9][a-z0-9\\-]*)*$",
       "maxLength": 128,
-      "description": "The pay: URI to register. Must follow FAS-1 format: pay:{namespace}.{identifier}. Lowercase only, dots are hierarchy separators."
+      "description": "The pay: URI to register. Must follow FAS-1 format: pay:{name} or pay:{namespace}.{identifier}. Lowercase only, dots are hierarchy separators."
     },
     "display_name": {
       "type": "string",

@@ -59,7 +59,7 @@ label-char    = ALPHA / DIGIT
 label-char-or-hyphen = ALPHA / DIGIT / "-"
 ```
 
-Consecutive dots (`..`) are not permitted. The URI must contain at least one dot after `pay:`.
+Consecutive dots (`..`) are not permitted. Single-label aliases (e.g., `pay:hempy`) and multi-label aliases (e.g., `pay:vendor.alpha`) are both valid.
 
 ### 2.3 Valid Examples
 
@@ -67,19 +67,19 @@ Consecutive dots (`..`) are not permitted. The URI must contain at least one dot
 pay:vendor.alpha
 pay:agent.compute
 pay:javaris
+pay:hempy
 pay:bank.acme
 pay:platform.shopify
 pay:user.alice
 pay:enterprise.treasury
 ```
 
-> Note: `pay:javaris` (single-label form) is supported for root namespace registrations only. Standard user registration requires the `namespace.identifier` form.
+> Note: Single-label form (e.g., `pay:hempy`) is supported for direct registrations. Multi-label `namespace.identifier` form (e.g., `pay:vendor.alpha`) is also supported for hierarchical naming.
 
 ### 2.4 Invalid Examples
 
 ```
 PAY:vendor.alpha     ← uppercase not permitted
-pay:vendor           ← single-label reserved for root namespaces
 pay:vendor..alpha    ← consecutive dots
 pay:-vendor.alpha    ← leading hyphen
 pay:vendor.alpha-    ← trailing hyphen
@@ -545,7 +545,7 @@ pay:null
 import re
 
 FAS1_PATTERN = re.compile(
-    r'^pay:[a-z0-9][a-z0-9\-]*(\.[a-z0-9][a-z0-9\-]*)+$'
+    r'^pay:[a-z0-9][a-z0-9\-]*(\.[a-z0-9][a-z0-9\-]*)*$'
 )
 MAX_LENGTH = 128
 
