@@ -101,7 +101,7 @@ pay:ven dor.alpha     ← spaces not permitted
 
 ### 3.1 Root Namespaces
 
-Root namespaces are top-level identifiers registered and controlled by the DNS of Money registry. They cannot be claimed by end users. Attempts to register a bare root namespace (e.g., `pay:agent`) return `ALIAS_RESERVED`.
+Root namespaces are top-level wildcard identifiers registered and controlled by the DNS of Money registry. Only the specific namespaces and protected names listed in Appendix A return `ALIAS_RESERVED`. Other single-label aliases (e.g., `pay:hempy`) are available for registration.
 
 **Reserved root namespaces:**
 
@@ -541,7 +541,7 @@ pay:enterprise.* pay:dev.*        pay:ai.*
 pay:dao.*
 ```
 
-**Protected single-label names:**
+**Protected single-label names (explicit list — unlisted single-label names like `pay:hempy` are available):**
 
 ```
 pay:pay     pay:money    pay:cash      pay:send

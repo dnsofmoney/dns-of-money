@@ -112,7 +112,7 @@ def main():
         sys.exit(1)
 
     if status == "reserved":
-        print("This alias is reserved (root namespace or protected name).")
+        print("This alias is reserved (listed in Appendix A protected names).")
         sys.exit(1)
 
     # Step 2: Register the alias
