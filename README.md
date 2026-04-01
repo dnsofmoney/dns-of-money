@@ -450,7 +450,7 @@ Authentication: `X-API-Key` header required for all write operations.
 - CDN-ready nginx with rate limiting + IPFS proxy
 - AWS SSM secrets management
 - EC2 deployment, HTTPS live (`api.dnsofmoney.com`)
-- 1405 tests passing
+- 1,114 tests passing
 
 ### Roadmap 🗺️
 - FedNow production integration (pending banking partner)
