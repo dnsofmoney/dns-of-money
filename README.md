@@ -274,7 +274,7 @@ Each founding name includes:
 - IPFS-pinned art and metadata that outlives every server
 - On-chain proof via FAS-1 memo protocol
 
-**12 minted. 588 remaining.** Mint yours at [dnsofmoney.com](https://dnsofmoney.com)
+**33 minted. 567 remaining.** Mint yours at [dnsofmoney.com](https://dnsofmoney.com)
 
 - Founding tier encoded on XRPL mainnet via FAS-1 memo
 - Permanent — cannot be revoked
@@ -443,7 +443,7 @@ Authentication: `X-API-Key` header required for all write operations.
 - ACH integration (sandbox)
 - OFAC sanctions screening
 - ISO 20022 hint generation
-- Founding tier (600-name hard cap, 12 minted, on-chain proof)
+- Founding tier (600-name hard cap, 33 minted, on-chain proof)
 - 41 root namespaces anchored on XRPL mainnet
 - Agent verification: first AI agent resolved + verified + witnessed payment
 - Marketing site live at [dnsofmoney.com](https://dnsofmoney.com) with SSL
