@@ -1,6 +1,13 @@
-"""DNS of Money Python SDK — resolve and register pay: aliases."""
+"""DNS of Money Python SDK — resolve, register, and send to pay: aliases."""
 
-from .client import DNSOfMoneyClient, check_availability, register, resolve
+from .client import (
+    DNSOfMoneyClient,
+    check_availability,
+    register,
+    resolve,
+    send,
+    send_preview,
+)
 from .exceptions import (
     AliasNotFoundError,
     AliasTakenError,
@@ -17,6 +24,8 @@ from .models import (
     Identity,
     RegistrationResponse,
     ResolutionResponse,
+    SendPreview,
+    SendResult,
 )
 
 __all__ = [
@@ -24,6 +33,8 @@ __all__ = [
     "resolve",
     "register",
     "check_availability",
+    "send_preview",
+    "send",
     "DNSOfMoneyError",
     "AliasNotFoundError",
     "AliasTakenError",
@@ -32,6 +43,8 @@ __all__ = [
     "CapReachedError",
     "ResolutionResponse",
     "RegistrationResponse",
+    "SendPreview",
+    "SendResult",
     "Entity",
     "Endpoint",
     "Compliance",
@@ -39,4 +52,4 @@ __all__ = [
     "AgentCard",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

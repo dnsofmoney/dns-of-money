@@ -1,7 +1,7 @@
 """
 DNS of Money SDK — Python client.
 
-Resolve, register, and check availability of pay: aliases.
+Resolve, register, send, and check availability of pay: aliases.
 Uses only the Python standard library (urllib) — no external dependencies.
 
 Usage:
@@ -9,9 +9,11 @@ Usage:
 
     client = DNSOfMoneyClient(api_key="fas_live_...")
     result = client.resolve("pay:vendor.alpha")
+    preview = client.send_preview("pay:vendor.alpha")
+    receipt = client.send("pay:vendor.alpha", amount=5.00)
 
 Or use module-level convenience functions:
-    from dnsofmoney import resolve, register, check_availability
+    from dnsofmoney import resolve, send_preview, send
 
     result = resolve("pay:vendor.alpha")
 """
@@ -38,6 +40,8 @@ from .models import (
     Identity,
     RegistrationResponse,
     ResolutionResponse,
+    SendPreview,
+    SendResult,
 )
 
 
@@ -127,6 +131,92 @@ class DNSOfMoneyClient:
             registration_number=data.get("registration_number"),
             anchor_status=data.get("anchor_status"),
             proof=data.get("proof"),
+            created_at=data.get("created_at"),
+        )
+
+    def send_preview(self, alias: str) -> SendPreview:
+        """
+        Preview where a payment would go without executing.
+
+        No API key required. Returns the destination address (masked),
+        rail, fee estimate, and identity info.
+
+        Args:
+            alias: A pay: alias (e.g., "pay:vendor.alpha") or bare name ("vendor.alpha").
+
+        Returns:
+            SendPreview with destination, rail, and identity info.
+
+        Raises:
+            AliasNotFoundError: If the alias does not exist.
+        """
+        data = self._get(f"/api/v1/send/preview/{alias}")
+        return SendPreview(
+            alias=data.get("alias", alias),
+            resolved=data.get("resolved", False),
+            destination_address=data.get("destination_address"),
+            display_name=data.get("display_name"),
+            rail=data.get("rail"),
+            currency=data.get("currency", "USD"),
+            fee_estimate=data.get("fee_estimate"),
+            identity=data.get("identity"),
+        )
+
+    def send(
+        self,
+        alias: str,
+        amount: float,
+        *,
+        currency: str = "USD",
+        memo: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+    ) -> SendResult:
+        """
+        Send money to a pay: alias.
+
+        Requires API key. Resolves the alias globally, routes to the best
+        payment rail, generates an ISO 20022 message, and executes settlement.
+
+        Args:
+            alias: Target pay: alias (e.g., "pay:vendor.alpha").
+            amount: Amount in currency units.
+            currency: Currency code (default "USD").
+            memo: Optional payment memo (max 256 chars).
+            idempotency_key: Unique key to prevent double-send. Auto-generated
+                             if not provided.
+
+        Returns:
+            SendResult with transaction_id, status, tx_hash, and settle time.
+
+        Raises:
+            AliasNotFoundError: If the alias does not exist.
+            AuthenticationError: If the API key is missing or invalid.
+        """
+        import secrets
+
+        if idempotency_key is None:
+            idempotency_key = f"sdk-{secrets.token_hex(16)}"
+
+        body: dict[str, Any] = {
+            "alias": alias,
+            "amount": amount,
+            "currency": currency,
+            "idempotency_key": idempotency_key,
+        }
+        if memo is not None:
+            body["memo"] = memo
+
+        data = self._post("/api/v1/send", body)
+        return SendResult(
+            transaction_id=data.get("transaction_id", ""),
+            status=data.get("status", ""),
+            alias=data.get("alias", alias),
+            amount=data.get("amount", amount),
+            currency=data.get("currency", currency),
+            rail=data.get("rail", ""),
+            tx_hash=data.get("tx_hash"),
+            settle_time_seconds=data.get("settle_time_seconds"),
+            memo=data.get("memo"),
             created_at=data.get("created_at"),
         )
 
@@ -228,6 +318,30 @@ def check_availability(
 ) -> bool:
     """Check alias availability. See DNSOfMoneyClient.check_availability for full docs."""
     return DNSOfMoneyClient(base_url=base_url).check_availability(alias_name)
+
+
+def send_preview(
+    alias: str,
+    base_url: str = DEFAULT_BASE_URL,
+) -> SendPreview:
+    """Preview a send-to-alias payment. See DNSOfMoneyClient.send_preview for full docs."""
+    return DNSOfMoneyClient(base_url=base_url).send_preview(alias)
+
+
+def send(
+    alias: str,
+    amount: float,
+    api_key: str,
+    *,
+    currency: str = "USD",
+    memo: Optional[str] = None,
+    idempotency_key: Optional[str] = None,
+    base_url: str = DEFAULT_BASE_URL,
+) -> SendResult:
+    """Send money to a pay: alias. See DNSOfMoneyClient.send for full docs."""
+    return DNSOfMoneyClient(api_key=api_key, base_url=base_url).send(
+        alias, amount, currency=currency, memo=memo, idempotency_key=idempotency_key,
+    )
 
 
 # ── Response parsing ──────────────────────────────────────────────────────

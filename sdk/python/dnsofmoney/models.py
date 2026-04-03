@@ -102,3 +102,33 @@ class RegistrationResponse:
     anchor_status: Optional[str] = None
     proof: Optional[dict[str, Any]] = None
     created_at: Optional[str] = None
+
+
+@dataclass
+class SendPreview:
+    """Preview of where a payment would go (dry-run, no execution)."""
+
+    alias: str
+    resolved: bool
+    destination_address: Optional[str] = None
+    display_name: Optional[str] = None
+    rail: Optional[str] = None
+    currency: str = "USD"
+    fee_estimate: Optional[str] = None
+    identity: Optional[dict[str, Any]] = None
+
+
+@dataclass
+class SendResult:
+    """Result of a send-to-alias payment execution."""
+
+    transaction_id: str
+    status: str
+    alias: str
+    amount: float
+    currency: str
+    rail: str
+    tx_hash: Optional[str] = None
+    settle_time_seconds: Optional[int] = None
+    memo: Optional[str] = None
+    created_at: Optional[str] = None
