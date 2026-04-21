@@ -8,21 +8,6 @@
   "cleanUrls": true,
   "trailingSlash": false,
 
-  "//": [
-    "SPA fallback: the xApp is a single-page React app. Any unknown path",
-    "rewrites to / so client-side routing (if added later) works. The OTT",
-    "query string survives the rewrite — Vercel preserves ?xAppToken=... .",
-    "",
-    "Headers:",
-    "  - /assets/*  gets aggressive immutable caching (Vite hashes filenames)",
-    "  - index.html gets no-cache so new deploys are picked up instantly",
-    "  - CSP allows only what the xApp actually needs: the xumm.app CDN for",
-    "    the SDK script, the backend API origin for fetch, and Xaman's",
-    "    WebView bridge (which uses the page itself, no extra origin).",
-    "  - frame-ancestors 'none' — Xaman is a native WebView, not an iframe,",
-    "    so blocking frame embedding is safe and closes one clickjacking vector."
-  ],
-
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ],
