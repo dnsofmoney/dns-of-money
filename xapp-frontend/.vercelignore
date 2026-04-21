@@ -1,0 +1,26 @@
+# Files excluded from the Vercel deploy upload.
+# Keeps bundles small and prevents secrets from ever leaving the laptop.
+
+# Secrets — belt and braces; Vercel reads env vars from its dashboard,
+# .env.local must never be uploaded.
+.env
+.env.local
+.env.*.local
+
+# Deps — Vercel runs installCommand itself.
+node_modules/
+
+# Local build output — Vercel runs buildCommand itself.
+dist/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docs — the README is useful in the repo but doesn't need to ship.
+README.md
+*.md
+
+# Logs
+*.log

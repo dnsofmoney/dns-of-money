@@ -1,0 +1,30 @@
+# deps
+node_modules/
+
+# build
+dist/
+dist-ssr/
+*.local
+
+# env — only .env.example is committed
+.env
+.env.local
+.env.*.local
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
