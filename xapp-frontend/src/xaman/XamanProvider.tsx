@@ -5,7 +5,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getXumm, parseBootParams, waitForReady } from "./sdk";
+import {
+  closeXapp,
+  openSignRequest as sdkOpenSignRequest,
+  parseBootParams,
+  signalReady,
+  waitForReady,
+} from "./sdk";
 import type {
   OttContext,
   SignRequestResult,
@@ -52,8 +58,9 @@ export function XamanProvider({ children }: Props) {
 
     async function boot() {
       try {
-        // 1. Wait for Xaman native bridge to inject OTT into window.xumm.
-        //    Mounting UI before this resolves is a bug (non-negotiable #5).
+        // 1. Give the host bridge a tick to wire up message listeners.
+        //    With the raw postMessage protocol there is no SDK promise to
+        //    await — the OTT is delivered via URL query params, not injected.
         await waitForReady();
 
         const { xAppToken } = parseBootParams();
@@ -121,7 +128,14 @@ export function XamanProvider({ children }: Props) {
           setError(e instanceof Error ? e.message : "Unknown boot error");
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          // Tell Xaman to dismiss its native loader now that we have
+          // something render-worthy (either the session panel or an
+          // actionable error). Fire-and-forget; if we're outside Xaman
+          // (local dev, plain browser), the message is simply ignored.
+          signalReady().catch(() => {});
+        }
       }
     }
 
@@ -142,13 +156,11 @@ export function XamanProvider({ children }: Props) {
           `Ask the user to switch networks in Xaman before signing.`,
       );
     }
-    const xumm = getXumm();
-    return xumm.xapp.openSignRequest({ uuid: payloadUuid });
+    return sdkOpenSignRequest(payloadUuid);
   };
 
   const close = async (): Promise<void> => {
-    const xumm = getXumm();
-    await xumm.xapp.close({ refreshEvents: true });
+    await closeXapp({ refreshEvents: true });
   };
 
   return (

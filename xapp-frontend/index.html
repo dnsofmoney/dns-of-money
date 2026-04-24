@@ -6,11 +6,13 @@
     <meta name="color-scheme" content="light dark" />
     <title>DNS of Money</title>
     <!--
-      Xaman xApp SDK — CDN build, aware of the native WebView bridge.
-      The npm SDK is for Web3/browser flows; xApps MUST use this script tag.
-      Non-negotiable per xaman-xapp-frontend skill.
+      xApp bootstrap — we speak the raw postMessage protocol documented in
+      XRPL Labs' open-source xAppBuilder (see src/xaman/sdk.ts). No external
+      SDK is injected into the WebView; commands are JSON-encoded window
+      messages and the OTT arrives via URL query params (?xAppToken=…).
+      This avoids the brittle `window.xumm` / `window.Xumm` global races
+      that the hosted SDK scripts introduce across Xaman versions.
     -->
-    <script src="https://xumm.app/assets/cdn/xumm.min.js"></script>
   </head>
   <body style="background: transparent; margin: 0;">
     <div id="root"></div>
