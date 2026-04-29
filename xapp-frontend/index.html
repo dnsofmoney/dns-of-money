@@ -4,15 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <title>DNS of Money</title>
+    <title>DNS://Money</title>
     <!--
-      xApp bootstrap — we speak the raw postMessage protocol documented in
-      XRPL Labs' open-source xAppBuilder (see src/xaman/sdk.ts). No external
-      SDK is injected into the WebView; commands are JSON-encoded window
-      messages and the OTT arrives via URL query params (?xAppToken=…).
-      This avoids the brittle `window.xumm` / `window.Xumm` global races
-      that the hosted SDK scripts introduce across Xaman versions.
+      Apply xAppStyle CSS variables immediately from the ?xAppStyle= URL param.
+      Runs before the JS bundle loads so loading/error states are never invisible
+      on dark themes (DARK / MOONLIGHT / ROYAL). Xaman passes xAppStyle in the
+      WebView URL; xAppBuilder passes it too. Defaults to LIGHT if absent.
+
+      The xApp speaks the raw postMessage protocol from XRPL Labs' open-source
+      xAppBuilder (src/xaman/sdk.ts). No CDN SDK is loaded — commands are
+      JSON-encoded window messages and the OTT arrives via URL query params.
     -->
+    <script>
+      (function () {
+        var s = new URLSearchParams(location.search).get("xAppStyle") || "LIGHT";
+        var themes = {
+          LIGHT:     ["#ffffff", "#000000", "#f5f5f7", "#e8e8ec", "#3052ff", "#e5484d"],
+          DARK:      ["#1c1c1e", "#ffffff", "#2c2c2e", "#3a3a3c", "#5878ff", "#ff6b6e"],
+          MOONLIGHT: ["#0a0e27", "#e0e7ff", "#1a1f3a", "#222849", "#8b9eff", "#ff8b8e"],
+          ROYAL:     ["#1a0033", "#f0e7ff", "#2d1654", "#3a1f67", "#c9a4ff", "#ff9fa2"],
+        };
+        var t = themes[s] || themes.LIGHT;
+        var r = document.documentElement.style;
+        r.setProperty("--xapp-bg",            t[0]);
+        r.setProperty("--xapp-text",          t[1]);
+        r.setProperty("--xapp-surface",       t[2]);
+        r.setProperty("--xapp-surface-muted", t[3]);
+        r.setProperty("--xapp-accent",        t[4]);
+        r.setProperty("--xapp-danger",        t[5]);
+      })();
+    </script>
   </head>
   <body style="background: transparent; margin: 0;">
     <div id="root"></div>
