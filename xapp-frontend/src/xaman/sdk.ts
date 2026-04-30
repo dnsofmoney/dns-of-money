@@ -53,33 +53,34 @@ const replyQueue = new Map<string, ReplyHandler[]>();
 
 let bridgeInitialized = false;
 
-function initBridge(): void {
-  if (bridgeInitialized || typeof window === "undefined") return;
-  window.addEventListener("message", (ev) => {
-    // Xaman posts JSON strings in xAppBuilder; native Xaman may post objects.
-    let parsed: HostReply;
-    if (typeof ev.data === "string") {
-      try {
-        parsed = JSON.parse(ev.data) as HostReply;
-      } catch {
-        return;
-      }
-    } else if (
-      ev.data &&
-      typeof ev.data === "object" &&
-      "method" in ev.data
-    ) {
-      parsed = ev.data as HostReply;
-    } else {
+function handleHostMessage(ev: MessageEvent): void {
+  // Xaman posts JSON strings in xAppBuilder; native Xaman may post objects.
+  let parsed: HostReply;
+  if (typeof ev.data === "string") {
+    try {
+      parsed = JSON.parse(ev.data) as HostReply;
+    } catch {
       return;
     }
-    if (!parsed || typeof parsed !== "object" || !("method" in parsed)) return;
+  } else if (ev.data && typeof ev.data === "object" && "method" in ev.data) {
+    parsed = ev.data as HostReply;
+  } else {
+    return;
+  }
+  if (!parsed || typeof parsed !== "object" || !("method" in parsed)) return;
 
-    const handlers = replyQueue.get(parsed.method);
-    if (!handlers || handlers.length === 0) return;
-    const handler = handlers.shift()!;
-    handler(parsed);
-  });
+  const handlers = replyQueue.get(parsed.method);
+  if (!handlers || handlers.length === 0) return;
+  const handler = handlers.shift()!;
+  handler(parsed);
+}
+
+function initBridge(): void {
+  if (bridgeInitialized || typeof window === "undefined") return;
+  // window — iOS WKWebView + xAppBuilder (Electron)
+  window.addEventListener("message", handleHostMessage);
+  // document — Android WebView delivers messages here
+  document.addEventListener("message", handleHostMessage as EventListener);
   bridgeInitialized = true;
 }
 
@@ -112,8 +113,16 @@ function sendCommand(
 ): void {
   initBridge();
   if (typeof window === "undefined") return;
-  // Xaman / xAppBuilder accepts a JSON string as the postMessage data.
-  window.postMessage(JSON.stringify({ command, ...args }), "*");
+  const message = JSON.stringify({ command, ...args });
+  // Real Xaman mobile (React Native WebView) uses window.ReactNativeWebView.postMessage.
+  // xAppBuilder (desktop Electron) uses standard window.postMessage.
+  const rnBridge = (window as unknown as { ReactNativeWebView?: { postMessage: (m: string) => void } })
+    .ReactNativeWebView;
+  if (rnBridge?.postMessage) {
+    rnBridge.postMessage(message);
+  } else {
+    window.postMessage(message, "*");
+  }
 }
 
 /**
