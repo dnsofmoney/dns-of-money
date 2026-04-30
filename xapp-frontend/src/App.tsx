@@ -217,7 +217,7 @@ function RegisterScreen() {
         "/api/v1/founding/create-payment",
         {
           method: "POST",
-          body: JSON.stringify({ alias_name: aliasName }),
+          body: JSON.stringify({ alias_name: aliasName, xrpl_address: account }),
         },
       );
       if (!resp.data?.uuid) throw new Error("No payload UUID returned");
