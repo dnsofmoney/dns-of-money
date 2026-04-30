@@ -35,6 +35,7 @@ interface CreatePaymentData {
   alias: string;
   amount_xrp: number;
   destination: string;
+  websocket_status: string | null;
 }
 
 type Phase = "idle" | "loading" | "signing" | "done" | "error";
@@ -83,6 +84,7 @@ function SendScreen() {
     if (!preview || amt <= 0) return;
     setPhase("loading");
     setErrMsg("");
+
     try {
       const resp = await request<{ success: boolean; data: CreatePaymentData }>(
         "/api/v1/send/create-payment",
@@ -94,14 +96,48 @@ function SendScreen() {
       if (!resp.data?.uuid) throw new Error("No payload UUID returned");
 
       setPhase("signing");
-      const result = await openSignRequest(resp.data.uuid);
+      const { uuid, websocket_status } = resp.data;
 
-      if (result.signed && result.txid) {
-        setTxid(result.txid);
-        setPhase("done");
-      } else {
-        setErrMsg(result.reason ?? "Rejected in Xaman");
-        setPhase("error");
+      // One-shot resolver — first path to fire wins, others are ignored.
+      let settled = false;
+      function settle(signed: boolean, txid?: string, reason?: string) {
+        if (settled) return;
+        settled = true;
+        if (signed && txid) {
+          setTxid(txid);
+          setPhase("done");
+        } else {
+          setErrMsg(reason ?? "Rejected in Xaman");
+          setPhase("error");
+        }
+      }
+
+      // Path 1 — postMessage reply (xAppBuilder, some Xaman versions).
+      openSignRequest(uuid)
+        .then((r) => settle(r.signed, r.txid, r.reason))
+        .catch(() => {
+          if (!settled) {
+            setErrMsg("Sign request timed out");
+            setPhase("error");
+          }
+        });
+
+      // Path 2 — Xaman payload WebSocket (real Xaman mobile).
+      if (websocket_status) {
+        const ws = new WebSocket(websocket_status);
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+            if (msg.signed === true) {
+              ws.close();
+              settle(true, msg.txid as string | undefined);
+            } else if (msg.signed === false) {
+              ws.close();
+              settle(false, undefined, "Rejected in Xaman");
+            }
+          } catch { /* ignore heartbeats */ }
+        };
+        ws.onerror = () => ws.close();
       }
     } catch (e) {
       if (e instanceof ApiError) {
