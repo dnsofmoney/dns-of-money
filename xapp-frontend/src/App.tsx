@@ -16,28 +16,34 @@ import { ApiError, useApiClient } from "./api/client";
  */
 export default function App() {
   const { session, loading, error } = useXaman();
+  const url = window.location.href;
+  const hasToken = url.includes("xAppToken");
 
   if (loading) {
     return (
-      <Shell>
-        <p>Booting Xaman session…</p>
-      </Shell>
+      <Debug
+        label="LOADING"
+        color="#1a73e8"
+        lines={[
+          "Booting Xaman session...",
+          `Token in URL: ${hasToken ? "YES ✓" : "NO ✗"}`,
+          url.slice(0, 80),
+        ]}
+      />
     );
   }
 
   if (error) {
     return (
-      <Shell>
-        <h2 style={{ color: "var(--xapp-danger)" }}>Boot failed</h2>
-        <p>
-          <code>{error}</code>
-        </p>
-        <p style={{ opacity: 0.7, fontSize: "0.9em" }}>
-          Common causes: running outside Xaman / xAppBuilder, backend{" "}
-          <code>/xapp/ott</code> unreachable, or Xaman API secret not configured
-          on the backend.
-        </p>
-      </Shell>
+      <Debug
+        label="ERROR"
+        color="#d32f2f"
+        lines={[
+          error,
+          `Token in URL: ${hasToken ? "YES ✓" : "NO ✗"}`,
+          url.slice(0, 80),
+        ]}
+      />
     );
   }
 
@@ -180,4 +186,48 @@ function KV({ k, v }: { k: string; v: string }) {
 function shortAddr(a: string): string {
   if (a.length <= 12) return a;
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function Debug({
+  label,
+  color,
+  lines,
+}: {
+  label: string;
+  color: string;
+  lines: string[];
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: color,
+        color: "#fff",
+        fontFamily: "monospace",
+        fontSize: 14,
+        padding: 20,
+        overflowY: "auto",
+        zIndex: 9999,
+      }}
+    >
+      <div style={{ fontWeight: "bold", fontSize: 20, marginBottom: 12 }}>
+        DNS://Money — {label}
+      </div>
+      {lines.map((l, i) => (
+        <div
+          key={i}
+          style={{
+            background: "rgba(0,0,0,0.25)",
+            borderRadius: 6,
+            padding: "8px 10px",
+            marginBottom: 8,
+            wordBreak: "break-all",
+          }}
+        >
+          {l}
+        </div>
+      ))}
+    </div>
+  );
 }
