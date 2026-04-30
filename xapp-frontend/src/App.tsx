@@ -64,7 +64,7 @@ function SendScreen() {
     debounceRef.current = setTimeout(async () => {
       try {
         const data = await request<PreviewData>(
-          `/send/preview/${encodeURIComponent(trimmed)}`,
+          `/api/v1/send/preview/${encodeURIComponent(trimmed)}`,
           { method: "GET" },
         );
         setPreview(data);
@@ -85,7 +85,7 @@ function SendScreen() {
     setErrMsg("");
     try {
       const resp = await request<{ success: boolean; data: CreatePaymentData }>(
-        "/send/create-payment",
+        "/api/v1/send/create-payment",
         {
           method: "POST",
           body: JSON.stringify({ alias: alias.trim(), amount: amt }),
