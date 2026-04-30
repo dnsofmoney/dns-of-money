@@ -56,12 +56,21 @@ let bridgeInitialized = false;
 function initBridge(): void {
   if (bridgeInitialized || typeof window === "undefined") return;
   window.addEventListener("message", (ev) => {
-    // Xaman / xAppBuilder post JSON strings. Anything else is not ours.
-    if (typeof ev.data !== "string") return;
+    // Xaman posts JSON strings in xAppBuilder; native Xaman may post objects.
     let parsed: HostReply;
-    try {
-      parsed = JSON.parse(ev.data) as HostReply;
-    } catch {
+    if (typeof ev.data === "string") {
+      try {
+        parsed = JSON.parse(ev.data) as HostReply;
+      } catch {
+        return;
+      }
+    } else if (
+      ev.data &&
+      typeof ev.data === "object" &&
+      "method" in ev.data
+    ) {
+      parsed = ev.data as HostReply;
+    } else {
       return;
     }
     if (!parsed || typeof parsed !== "object" || !("method" in parsed)) return;
@@ -177,11 +186,11 @@ export async function closeXapp(
  */
 export async function openSignRequest(
   payloadUuid: string,
+  timeoutMs = 300_000,
 ): Promise<SignRequestResult> {
-  const pending = waitForReply("openSignRequest");
+  const pending = waitForReply("openSignRequest", timeoutMs);
   sendCommand("openSignRequest", { uuid: payloadUuid });
   const reply = (await pending) as { method: "openSignRequest" } & SignRequestResult;
-  // Strip the `method` field — the rest is the SignRequestResult shape.
   const { method: _method, ...result } = reply;
   return result as SignRequestResult;
 }
