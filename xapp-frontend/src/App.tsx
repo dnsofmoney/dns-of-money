@@ -1,10 +1,13 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useXaman } from "./xaman/useXaman";
 import { ApiError, useApiClient } from "./api/client";
 import { openSignRequest } from "./xaman/sdk";
 
+type Screen = "send" | "register";
+
 export default function App() {
   const { session, loading, error } = useXaman();
+  const [screen, setScreen] = useState<Screen>("send");
 
   if (loading) return <Spinner />;
   if (error || !session) {
@@ -17,7 +20,61 @@ export default function App() {
     );
   }
 
-  return <SendScreen />;
+  return (
+    <>
+      <div style={{ paddingBottom: 64 }}>
+        {screen === "send" ? <SendScreen /> : <RegisterScreen />}
+      </div>
+      <TabBar screen={screen} onSwitch={setScreen} />
+    </>
+  );
+}
+
+// ── Tab bar ───────────────────────────────────────────────────────────────────
+
+function TabBar({
+  screen,
+  onSwitch,
+}: {
+  screen: Screen;
+  onSwitch: (s: Screen) => void;
+}) {
+  return (
+    <nav
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "var(--xapp-surface)",
+        borderTop: "1px solid var(--xapp-surface-muted)",
+        display: "flex",
+        zIndex: 100,
+      }}
+    >
+      {(["send", "register"] as Screen[]).map((s) => (
+        <button
+          key={s}
+          onClick={() => onSwitch(s)}
+          style={{
+            flex: 1,
+            padding: "12px 0 16px",
+            background: "none",
+            border: "none",
+            color:
+              screen === s ? "var(--xapp-accent)" : "var(--xapp-text)",
+            fontSize: "0.8em",
+            fontWeight: screen === s ? 700 : 400,
+            cursor: "pointer",
+            opacity: screen === s ? 1 : 0.5,
+            transition: "color 0.15s, opacity 0.15s",
+          }}
+        >
+          {s === "send" ? "Send" : "Register"}
+        </button>
+      ))}
+    </nav>
+  );
 }
 
 // ── Send screen ───────────────────────────────────────────────────────────────
@@ -30,7 +87,7 @@ interface PreviewData {
   fee_estimate: string | null;
 }
 
-interface CreatePaymentData {
+interface CreateSendData {
   uuid: string;
   alias: string;
   amount_xrp: number;
@@ -38,7 +95,7 @@ interface CreatePaymentData {
   websocket_status: string | null;
 }
 
-type Phase = "idle" | "loading" | "signing" | "done" | "error";
+type SendPhase = "idle" | "loading" | "signing" | "done" | "error";
 
 function SendScreen() {
   const { session } = useXaman();
@@ -48,7 +105,7 @@ function SendScreen() {
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewErr, setPreviewErr] = useState("");
   const [amount, setAmount] = useState("1");
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<SendPhase>("idle");
   const [txid, setTxid] = useState("");
   const [errMsg, setErrMsg] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -86,7 +143,7 @@ function SendScreen() {
     setErrMsg("");
 
     try {
-      const resp = await request<{ success: boolean; data: CreatePaymentData }>(
+      const resp = await request<{ success: boolean; data: CreateSendData }>(
         "/api/v1/send/create-payment",
         {
           method: "POST",
@@ -98,7 +155,6 @@ function SendScreen() {
       setPhase("signing");
       const { uuid, websocket_status } = resp.data;
 
-      // One-shot resolver — first path to fire wins, others are ignored.
       let settled = false;
       function settle(signed: boolean, txid?: string, reason?: string) {
         if (settled) return;
@@ -112,7 +168,6 @@ function SendScreen() {
         }
       }
 
-      // Path 1 — postMessage reply (xAppBuilder, some Xaman versions).
       openSignRequest(uuid)
         .then((r) => settle(r.signed, r.txid, r.reason))
         .catch(() => {
@@ -122,7 +177,6 @@ function SendScreen() {
           }
         });
 
-      // Path 2 — Xaman payload WebSocket (real Xaman mobile).
       if (websocket_status) {
         const ws = new WebSocket(websocket_status);
         ws.onmessage = (ev) => {
@@ -165,43 +219,23 @@ function SendScreen() {
   if (phase === "done") {
     return (
       <Shell>
-        <SuccessPanel txid={txid} onReset={reset} />
+        <SuccessPanel
+          title="Sent!"
+          detail={txid}
+          detailLabel="Transaction ID"
+          onReset={reset}
+          resetLabel="Send again"
+        />
       </Shell>
     );
   }
 
   return (
     <Shell>
-      {/* Header */}
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 28,
-        }}
-      >
-        <span style={{ fontWeight: 700, fontSize: "1.05em", letterSpacing: "-0.01em" }}>
-          DNS://Money
-        </span>
-        <span
-          style={{
-            fontSize: "0.72em",
-            background: "var(--xapp-surface-muted)",
-            borderRadius: 20,
-            padding: "3px 10px",
-            opacity: 0.75,
-            fontFamily: "monospace",
-          }}
-        >
-          {shortAddr(ctx.account)}
-        </span>
-      </header>
+      <Header account={ctx.account} />
 
-      {/* Section label */}
       <Label>Send to alias</Label>
 
-      {/* Alias input */}
       <input
         value={alias}
         onChange={(e) => onAliasChange(e.target.value)}
@@ -213,7 +247,6 @@ function SendScreen() {
         inputMode="text"
       />
 
-      {/* Preview card */}
       {preview && (
         <div
           style={{
@@ -225,14 +258,8 @@ function SendScreen() {
           }}
         >
           <Row label="To" value={preview.display_name ?? preview.alias} />
-          <Row
-            label="Address"
-            value={preview.destination_address ?? "—"}
-            mono
-          />
-          {preview.fee_estimate && (
-            <Row label="Fee" value={preview.fee_estimate} />
-          )}
+          <Row label="Address" value={preview.destination_address ?? "—"} mono />
+          {preview.fee_estimate && <Row label="Fee" value={preview.fee_estimate} />}
         </div>
       )}
       {previewErr && (
@@ -241,7 +268,6 @@ function SendScreen() {
         </p>
       )}
 
-      {/* Amount input — only shown once alias resolves */}
       {preview && (
         <>
           <Label style={{ marginTop: 20 }}>Amount (XRP)</Label>
@@ -257,14 +283,12 @@ function SendScreen() {
         </>
       )}
 
-      {/* Inline error */}
       {phase === "error" && (
         <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "10px 0 0" }}>
           {errMsg}
         </p>
       )}
 
-      {/* CTA */}
       <Btn
         onClick={send}
         disabled={!inputsReady || phase !== "idle"}
@@ -281,9 +305,306 @@ function SendScreen() {
   );
 }
 
-// ── Success panel ─────────────────────────────────────────────────────────────
+// ── Register screen ───────────────────────────────────────────────────────────
 
-function SuccessPanel({ txid, onReset }: { txid: string; onReset: () => void }) {
+type AvailStatus = "idle" | "checking" | "available" | "taken" | "reserved" | "invalid";
+type RegisterPhase = "idle" | "loading" | "signing" | "registering" | "done" | "error";
+
+interface CreateMintData {
+  uuid: string;
+  websocket_status: string | null;
+  price_xrp: number;
+  price_drops: number;
+}
+
+function RegisterScreen() {
+  const { session } = useXaman();
+  const { request } = useApiClient();
+  const apiBase = import.meta.env.VITE_API_BASE_URL as string;
+
+  const [name, setName] = useState("");
+  const [avail, setAvail] = useState<AvailStatus>("idle");
+  const [priceXrp, setPriceXrp] = useState<number | null>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [phase, setPhase] = useState<RegisterPhase>("idle");
+  const [mintedAlias, setMintedAlias] = useState("");
+  const [errMsg, setErrMsg] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load current price + remaining slots on mount (public endpoint, plain fetch)
+  useEffect(() => {
+    fetch(`${apiBase}/api/v1/founding/status`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.data?.is_open) {
+          setPriceXrp(d.data.price_xrp);
+          setRemaining(d.data.remaining);
+        }
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onNameChange(value: string) {
+    const stripped = value.replace(/^pay:/i, "").toLowerCase();
+    setName(stripped);
+    setAvail("idle");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (stripped.length < 1) return;
+    setAvail("checking");
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const resp = await request<{
+          success: boolean;
+          data: { alias_name: string; status: string };
+        }>(`/api/v1/founding/available/pay:${stripped}`, { method: "GET" });
+        setAvail(resp.data.status as AvailStatus);
+      } catch {
+        setAvail("invalid");
+      }
+    }, 600);
+  }
+
+  async function mint() {
+    if (avail !== "available" || phase !== "idle") return;
+    setPhase("loading");
+    setErrMsg("");
+
+    const aliasName = `pay:${name}`;
+
+    try {
+      const resp = await request<{ success: boolean; data: CreateMintData }>(
+        "/api/v1/founding/create-payment",
+        {
+          method: "POST",
+          body: JSON.stringify({ alias_name: aliasName }),
+        },
+      );
+      if (!resp.data?.uuid) throw new Error("No payload UUID returned");
+
+      setPhase("signing");
+      const { uuid, websocket_status } = resp.data;
+
+      let settled = false;
+      function settle(txid?: string, reason?: string) {
+        if (settled) return;
+        settled = true;
+        if (txid) {
+          doRegister(aliasName, txid);
+        } else {
+          setErrMsg(reason ?? "Rejected in Xaman");
+          setPhase("error");
+        }
+      }
+
+      openSignRequest(uuid)
+        .then((r) => settle(r.signed ? r.txid : undefined, r.reason))
+        .catch(() => {
+          if (!settled) {
+            setErrMsg("Sign request timed out");
+            setPhase("error");
+          }
+        });
+
+      if (websocket_status) {
+        const ws = new WebSocket(websocket_status);
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
+            if (msg.signed === true) {
+              ws.close();
+              settle(msg.txid as string | undefined);
+            } else if (msg.signed === false) {
+              ws.close();
+              settle(undefined, "Rejected in Xaman");
+            }
+          } catch { /* ignore heartbeats */ }
+        };
+        ws.onerror = () => ws.close();
+      }
+    } catch (e) {
+      setErrMsg(e instanceof ApiError ? `Server error ${e.status}` : e instanceof Error ? e.message : String(e));
+      setPhase("error");
+    }
+  }
+
+  async function doRegister(aliasName: string, txHash: string) {
+    setPhase("registering");
+    try {
+      await request("/api/v1/founding/register", {
+        method: "POST",
+        body: JSON.stringify({
+          alias_name: aliasName,
+          xrpl_address: session!.context.account,
+          founding_tx_hash: txHash,
+        }),
+      });
+      setMintedAlias(aliasName);
+      setPhase("done");
+    } catch (e) {
+      const msg =
+        e instanceof ApiError
+          ? ((e.body as { message?: string } | null)?.message ?? `Server error ${e.status}`)
+          : e instanceof Error
+            ? e.message
+            : String(e);
+      setErrMsg(msg);
+      setPhase("error");
+    }
+  }
+
+  function reset() {
+    setPhase("idle");
+    setErrMsg("");
+    setName("");
+    setAvail("idle");
+    setMintedAlias("");
+  }
+
+  const inputsReady = avail === "available";
+  const canMint = inputsReady && phase === "idle";
+
+  if (phase === "done") {
+    return (
+      <Shell>
+        <SuccessPanel
+          title="Registered!"
+          detail={mintedAlias}
+          detailLabel="Your alias"
+          subtext="Identity NFT is being minted — check back in a few minutes."
+          onReset={reset}
+          resetLabel="Register another"
+          accentDetail
+        />
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <Header account={session!.context.account} />
+
+      <Label>Register alias</Label>
+
+      {/* pay: prefix shown inline */}
+      <div style={{ position: "relative" }}>
+        <span
+          style={{
+            position: "absolute",
+            left: 14,
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "var(--xapp-text)",
+            opacity: 0.4,
+            fontSize: "1em",
+            pointerEvents: "none",
+            userSelect: "none",
+          }}
+        >
+          pay:
+        </span>
+        <input
+          value={name}
+          onChange={(e) => onNameChange(e.target.value)}
+          placeholder="yourname"
+          style={{ ...inputStyle, paddingLeft: 52 }}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </div>
+
+      {/* Availability */}
+      {avail !== "idle" && (
+        <p
+          style={{
+            fontSize: "0.85em",
+            margin: "6px 0 0",
+            color: availColor(avail),
+          }}
+        >
+          {availLabel(avail)}
+        </p>
+      )}
+
+      {/* Price + slots */}
+      {avail === "available" && priceXrp !== null && (
+        <div
+          style={{
+            background: "var(--xapp-surface)",
+            borderRadius: 10,
+            padding: "12px 14px",
+            marginTop: 12,
+            fontSize: "0.88em",
+          }}
+        >
+          <Row label="Cost" value={`${priceXrp} XRP`} />
+          <Row label="You get" value="pay:name + identity NFT" />
+          {remaining !== null && (
+            <Row label="Slots left" value={String(remaining)} />
+          )}
+        </div>
+      )}
+
+      {phase === "error" && (
+        <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "10px 0 0" }}>
+          {errMsg}
+        </p>
+      )}
+
+      <Btn
+        onClick={mint}
+        disabled={!inputsReady || phase !== "idle"}
+        active={canMint}
+        style={{ marginTop: 24 }}
+      >
+        {phase === "loading"
+          ? "Preparing…"
+          : phase === "signing"
+            ? "Waiting for signature…"
+            : phase === "registering"
+              ? "Registering…"
+              : "Register & Mint"}
+      </Btn>
+    </Shell>
+  );
+}
+
+function availColor(s: AvailStatus): string {
+  if (s === "available") return "var(--xapp-accent)";
+  if (s === "checking") return "inherit";
+  return "var(--xapp-danger)";
+}
+
+function availLabel(s: AvailStatus): string {
+  switch (s) {
+    case "checking": return "Checking…";
+    case "available": return "✓ Available";
+    case "taken": return "✗ Already taken";
+    case "reserved": return "✗ Reserved name";
+    case "invalid": return "✗ Invalid format";
+    default: return "";
+  }
+}
+
+// ── Shared primitives ─────────────────────────────────────────────────────────
+
+function SuccessPanel({
+  title,
+  detail,
+  detailLabel,
+  subtext,
+  onReset,
+  resetLabel,
+  accentDetail,
+}: {
+  title: string;
+  detail: string;
+  detailLabel: string;
+  subtext?: string;
+  onReset: () => void;
+  resetLabel: string;
+  accentDetail?: boolean;
+}) {
   return (
     <div style={{ textAlign: "center", paddingTop: 48 }}>
       <div
@@ -302,27 +623,61 @@ function SuccessPanel({ txid, onReset }: { txid: string; onReset: () => void }) 
       >
         ✓
       </div>
-      <h2 style={{ margin: "0 0 6px", fontSize: "1.3em" }}>Sent!</h2>
-      <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 4px" }}>Transaction ID</p>
+      <h2 style={{ margin: "0 0 6px", fontSize: "1.3em" }}>{title}</h2>
+      <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 4px" }}>{detailLabel}</p>
       <code
         style={{
-          fontSize: "0.72em",
+          fontSize: accentDetail ? "1.05em" : "0.72em",
+          fontWeight: accentDetail ? 700 : 400,
+          color: accentDetail ? "var(--xapp-accent)" : "inherit",
           wordBreak: "break-all",
-          opacity: 0.7,
           display: "block",
           padding: "0 16px",
+          opacity: accentDetail ? 1 : 0.7,
         }}
       >
-        {txid}
+        {detail}
       </code>
-      <Btn onClick={onReset} active style={{ marginTop: 36 }}>
-        Send again
+      {subtext && (
+        <p style={{ opacity: 0.45, fontSize: "0.78em", marginTop: 10, padding: "0 24px" }}>
+          {subtext}
+        </p>
+      )}
+      <Btn onClick={onReset} active style={{ marginTop: 32 }}>
+        {resetLabel}
       </Btn>
     </div>
   );
 }
 
-// ── Shared primitives ─────────────────────────────────────────────────────────
+function Header({ account }: { account: string }) {
+  return (
+    <header
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 28,
+      }}
+    >
+      <span style={{ fontWeight: 700, fontSize: "1.05em", letterSpacing: "-0.01em" }}>
+        DNS://Money
+      </span>
+      <span
+        style={{
+          fontSize: "0.72em",
+          background: "var(--xapp-surface-muted)",
+          borderRadius: 20,
+          padding: "3px 10px",
+          opacity: 0.75,
+          fontFamily: "monospace",
+        }}
+      >
+        {shortAddr(account)}
+      </span>
+    </header>
+  );
+}
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
