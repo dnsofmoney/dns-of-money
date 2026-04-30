@@ -9,11 +9,17 @@
 
 :root {
   --xapp-bg: transparent;
-  --xapp-text: #000000;
-  --xapp-surface: #f5f5f7;
-  --xapp-surface-muted: #e8e8ec;
-  --xapp-accent: #3052ff;
-  --xapp-danger: #e5484d;
+  --xapp-text: #1f2937;
+  --xapp-text-muted: #6b7280;
+  --xapp-surface: #f3f4f6;
+  --xapp-surface-muted: #e5e7eb;
+  --xapp-border: #e5e7eb;
+  --xapp-accent: #95a9ce;
+  --xapp-accent-light: #b0c0db;
+  --xapp-gold: #e5b567;
+  --xapp-success: #4caf50;
+  --xapp-warning: #f59e0b;
+  --xapp-danger: #ef4444;
 }
 
 html,

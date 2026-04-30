@@ -89,7 +89,7 @@ function StepBar({ current }: { current: 1 | 2 | 3 }) {
                     width: 28,
                     height: 28,
                     borderRadius: "50%",
-                    background: done || active ? "var(--xapp-accent)" : "var(--xapp-surface-muted)",
+                    background: done ? "linear-gradient(135deg, var(--xapp-gold), #d4a055)" : active ? "linear-gradient(135deg, var(--xapp-accent), var(--xapp-accent-light))" : "var(--xapp-surface-muted)",
                     color: done || active ? "#fff" : "var(--xapp-text)",
                     display: "flex",
                     alignItems: "center",
@@ -119,7 +119,7 @@ function StepBar({ current }: { current: 1 | 2 | 3 }) {
                   style={{
                     flex: 1,
                     height: 1,
-                    background: done ? "var(--xapp-accent)" : "var(--xapp-surface-muted)",
+                    background: done ? "linear-gradient(135deg, var(--xapp-gold), #d4a055)" : "var(--xapp-surface-muted)",
                     margin: "0 6px",
                     marginBottom: 18,
                     transition: "background 0.2s",
@@ -300,7 +300,7 @@ function RegisterScreen() {
               width: 72,
               height: 72,
               borderRadius: "50%",
-              background: "var(--xapp-accent)",
+              background: "linear-gradient(135deg, var(--xapp-gold), #d4a055)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -318,7 +318,7 @@ function RegisterScreen() {
               display: "block",
               fontSize: "1.2em",
               fontWeight: 700,
-              color: "var(--xapp-accent)",
+              color: "var(--xapp-gold)",
               marginBottom: 8,
             }}
           >
@@ -418,6 +418,7 @@ function RegisterScreen() {
         <div
           style={{
             background: "var(--xapp-surface)",
+            border: "1px solid var(--xapp-border)",
             borderRadius: 12,
             padding: "16px",
             fontSize: "0.9em",
@@ -479,7 +480,7 @@ function RegisterScreen() {
             width: 64,
             height: 64,
             borderRadius: "50%",
-            border: "3px solid var(--xapp-accent)",
+            border: "3px solid var(--xapp-gold)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -627,7 +628,7 @@ function SendScreen() {
           <div
             style={{
               width: 64, height: 64, borderRadius: "50%",
-              background: "var(--xapp-accent)", display: "flex",
+              background: "linear-gradient(135deg, var(--xapp-gold), #d4a055)", display: "flex",
               alignItems: "center", justifyContent: "center",
               margin: "0 auto 20px", fontSize: 28, color: "#fff",
             }}
@@ -662,7 +663,7 @@ function SendScreen() {
       />
 
       {preview && (
-        <div style={{ background: "var(--xapp-surface)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "0.88em" }}>
+        <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "0.88em" }}>
           <Row label="To" value={preview.display_name ?? preview.alias} />
           <Row label="Address" value={preview.destination_address ?? "—"} mono />
           {preview.fee_estimate && <Row label="Fee" value={preview.fee_estimate} />}
@@ -751,25 +752,29 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-function Btn({ children, onClick, disabled, active, style }: {
+function Btn({ children, onClick, disabled, active, gold, style }: {
   children: React.ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   active?: boolean;
+  gold?: boolean;
   style?: React.CSSProperties;
 }) {
+  const activeBg = gold
+    ? "linear-gradient(135deg, var(--xapp-gold), #d4a055)"
+    : "linear-gradient(135deg, var(--xapp-accent), var(--xapp-accent-light))";
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       style={{
         display: "block", width: "100%", padding: "14px", borderRadius: 12, border: "none",
-        background: active ? "var(--xapp-accent)" : "var(--xapp-surface-muted)",
+        background: active ? activeBg : "var(--xapp-surface-muted)",
         color: active ? "#fff" : "var(--xapp-text)",
         fontSize: "1em", fontWeight: 600,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.45 : 1,
-        transition: "background 0.15s, opacity 0.15s",
+        transition: "opacity 0.15s",
         ...style,
       }}
     >
