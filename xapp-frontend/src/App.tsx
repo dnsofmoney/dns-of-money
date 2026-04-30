@@ -123,8 +123,8 @@ function SendScreen() {
     setAmount("1");
   }
 
-  const canSend =
-    !!preview && !previewErr && parseFloat(amount) > 0 && phase === "idle";
+  const inputsReady = !!preview && !previewErr && parseFloat(amount) > 0;
+  const canSend = inputsReady && phase === "idle";
 
   if (phase === "done") {
     return (
@@ -231,8 +231,8 @@ function SendScreen() {
       {/* CTA */}
       <Btn
         onClick={send}
-        disabled={!canSend || phase === "loading" || phase === "signing"}
-        active={canSend && phase === "idle"}
+        disabled={!inputsReady || phase !== "idle"}
+        active={canSend}
         style={{ marginTop: 24 }}
       >
         {phase === "loading"
