@@ -159,20 +159,29 @@ function RegisterScreen() {
   const [phase, setPhase] = useState<RegisterPhase>("idle");
   const [mintedAlias, setMintedAlias] = useState("");
   const [errMsg, setErrMsg] = useState("");
+  const [walletChecking, setWalletChecking] = useState(true);
+  const [existingAlias, setExistingAlias] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const account = session!.context.account;
 
   useEffect(() => {
-    fetch(`${apiBase}/api/v1/founding/status`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.data?.is_open) {
-          setPriceXrp(d.data.price_xrp);
-          setRemaining(d.data.remaining);
+    const base = apiBase;
+    Promise.all([
+      fetch(`${base}/api/v1/founding/status`).then((r) => r.json()),
+      fetch(`${base}/api/v1/founding/wallet-check/${encodeURIComponent(account)}`).then((r) => r.json()),
+    ])
+      .then(([status, walletCheck]) => {
+        if (status.data?.is_open) {
+          setPriceXrp(status.data.price_xrp);
+          setRemaining(status.data.remaining);
+        }
+        if (walletCheck.data?.already_registered) {
+          setExistingAlias(walletCheck.data.existing_alias ?? "pay:???");
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setWalletChecking(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onNameChange(value: string) {
@@ -288,6 +297,51 @@ function RegisterScreen() {
     setAvail("idle");
     setMintedAlias("");
     setStep(1);
+  }
+
+  if (walletChecking) {
+    return <Shell><Header account={account} /><Spinner /></Shell>;
+  }
+
+  if (existingAlias) {
+    return (
+      <Shell>
+        <Header account={account} />
+        <div style={{ textAlign: "center", paddingTop: 40 }}>
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, var(--xapp-gold), #d4a055)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px",
+              fontSize: 26,
+              color: "#fff",
+            }}
+          >
+            ✓
+          </div>
+          <h2 style={{ margin: "0 0 8px", fontSize: "1.2em" }}>You're already registered</h2>
+          <code
+            style={{
+              display: "block",
+              fontSize: "1.15em",
+              fontWeight: 700,
+              color: "var(--xapp-gold)",
+              margin: "0 0 12px",
+            }}
+          >
+            {existingAlias}
+          </code>
+          <p style={{ opacity: 0.45, fontSize: "0.82em", margin: 0, padding: "0 24px", lineHeight: 1.5 }}>
+            One alias per wallet. Use the Send tab to pay anyone on DNS://Money.
+          </p>
+        </div>
+      </Shell>
+    );
   }
 
   if (phase === "done") {
