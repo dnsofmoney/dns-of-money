@@ -6,12 +6,12 @@
  * (LIGHT / DARK / MOONLIGHT / ROYAL). Components should consume var(--xapp-*)
  * instead of hardcoding colors — non-negotiable #7 per xaman-xapp-frontend skill.
  *
- * TODO: Palette migration QUEUED (separate sprint after Phase E of marketing
- * canon work). Current palette = cornflower-blue #95A9CE + gold success (commit
- * ade722c, 2026-04-30). Target = teal #00c4b4 accent + red #e8001c CTA, matching
- * the marketing site (financial-autonomy-stack/marketing, design-swap-teal-primary
- * branch). Source of truth = financial-autonomy-stack/marketing/brand-kit.md
- * (v2, Phase E). Do not migrate before brand kit v2 lands.
+ * TODO: Palette migration QUEUED (separate sprint after brand kit v2 shipped).
+ * Current palette = cornflower-blue #95A9CE + gold success (commit ade722c,
+ * 2026-04-30). Target = teal #00c4b4 accent + red #e8001c CTA, matching the
+ * marketing site (financial-autonomy-stack/marketing, design-swap-teal-primary
+ * branch). Source of truth = financial-autonomy-stack/_canon/brand-kit.md
+ * (Phase E v2 shipped 2026-05-12). Migration sprint to follow.
  */
 
 :root {
