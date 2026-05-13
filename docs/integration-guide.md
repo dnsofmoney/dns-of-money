@@ -1,6 +1,83 @@
 # Integration Guide
 
-Get started resolving `pay:` aliases in your application.
+Get started resolving and minting `pay:` aliases.
+
+## Quick Links
+
+- [Resolve a pay: alias](#resolve-a-pay-alias) (for developers integrating resolution)
+- [Mint a founding name](#mint-a-founding-name) (for users who want a pay: name)
+- [API reference](#response-fields-tier-3)
+- [SDKs](#sdks)
+
+---
+
+## Mint a Founding Name
+
+The founding tier is live. 600 total names. Once gone, the tier closes permanently.
+
+### Graduated Pricing
+
+| Mints | Price | Slots |
+|-------|-------|-------|
+| 1-10 | Free (1 drop) | 10 (claimed) |
+| 11-79 | 1 XRP | ~50 |
+| 80-129 | 2 XRP | 50 |
+| 130-179 | 3 XRP | 50 |
+| 180-229 | 4 XRP | 50 |
+| 230-600 | 5 XRP | 371 |
+
+Price increases automatically as each tier fills. Check the current price:
+
+```bash
+curl https://api.dnsofmoney.com/api/v1/founding/status
+```
+
+Returns `price_xrp`, `slots_at_price`, and `tier_label`.
+
+### How to Mint
+
+1. **Go to [dnsofmoney.com](https://dnsofmoney.com)** and click "Mint your name"
+2. **Choose your name** — type it in and check availability
+3. **Connect your Xaman (XUMM) wallet** — scan the QR or tap the deeplink on mobile
+4. **Sign the payment** — the current XRP price is shown. One tap in Xaman.
+5. **Wait for your identity** — the pipeline generates a unique fractal flame, uploads it to IPFS, and mints an XLS-20 NFT on XRPL mainnet
+6. **Claim your NFT** — scan the claim QR to accept the NFT into your wallet
+
+### Rules
+
+- One name per XRPL wallet
+- Single-label names allowed (e.g., `pay:yourname`)
+- Founding names are permanently grandfathered at founding tier pricing
+- Each name gets a generative NFT identity that evolves with usage
+- On-chain proof via FAS-1 memo transaction on XRPL
+
+### Check Current Status
+
+```bash
+curl https://api.dnsofmoney.com/api/v1/founding/status
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "total": 600,
+    "claimed": 31,
+    "remaining": 569,
+    "price_xrp": "1",
+    "tier_label": "1 XRP (48 left at this price)",
+    "slots_at_price": 48
+  }
+}
+```
+
+### Check Availability
+
+```bash
+curl https://api.dnsofmoney.com/api/v1/founding/available/pay:yourname
+```
+
+---
 
 ## Base URL
 
@@ -216,6 +293,10 @@ Requires an API key. See the [FAS-1 spec](FAS-1-spec.md) for registration requir
 | `COMPLIANCE_PENDING` | 202 | Screening in progress, retry later |
 | `INVALID_ALIAS_FORMAT` | 400 | Alias doesn't match FAS-1 format |
 | `RATE_LIMITED` | 429 | Too many requests |
+| `CAP_EXCEEDED` | 409 | Founding tier cap reached |
+| `WALLET_ALREADY_REGISTERED` | 409 | Wallet already has a founding name |
+| `TX_HASH_ALREADY_USED` | 409 | Payment TX already used for another registration |
+| `ALIAS_UNAVAILABLE` | 409 | Name is taken or reserved |
 
 ## SDKs
 

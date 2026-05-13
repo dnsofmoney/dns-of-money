@@ -261,10 +261,14 @@ The committed `vercel.json` already configures:
 
 ### Smoke-test after deploy
 
-1. Visit `https://xapp.dnsofmoney.com` in a browser (not Xaman) — you should see the
-   "Booting Xaman session…" message, then an error "Missing xAppToken query param…".
-   That's the correct behaviour outside Xaman — it confirms the build shipped and
-   the transparent-background SPA boots.
+1. Visit `https://xapp.dnsofmoney.com` in a browser (not Xaman) — you should see
+   "Booting Xaman session…", then an error "xumm SDK not loaded — check the
+   `<script>` tag… confirm you're running inside Xaman or xAppBuilder."
+   That's the correct behaviour outside Xaman: the `xumm.min.js` CDN build only
+   injects `window.xumm` when it detects Xaman's native WebView bridge, so
+   outside Xaman the SDK stays unloaded by design. Seeing this error in a browser
+   means the build shipped, React mounted, and CSP isn't blocking anything — all
+   good signs. The full OTT flow can only be tested *inside* Xaman.
 2. Open xAppBuilder in Xaman, point at `xapp.dnsofmoney.com`, launch. The session
    panel should populate and **Ping /xapp/me** should return `{success: true, data: {...}}`.
 3. Check headers:

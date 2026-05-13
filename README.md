@@ -3,10 +3,12 @@
 > *"In another time's forgotten space"*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![FAS-1 Spec](https://img.shields.io/badge/spec-FAS--1%20v0.2-green)](docs/FAS-1-spec.md)
-[![XRPL Anchored](https://img.shields.io/badge/XRPL-anchored%20on--chain-blue)](https://xrpl.org)
-[![Status](https://img.shields.io/badge/status-Phase%206%20complete-brightgreen)](CHANGELOG.md)
-[![A2A Compatible](https://img.shields.io/badge/A2A-041%20compatible-purple)](https://github.com/dnsofmoney/a2a-protocol-core)
+[![FAS-1 Spec](https://img.shields.io/badge/spec-FAS--1%20v0.2-green)](https://dnsofmoney.com/fas-1/?utm_source=github&utm_medium=readme&utm_campaign=spec)
+[![XRPL Mainnet](https://img.shields.io/badge/XRPL-live%20on%20mainnet-brightgreen)](https://livenet.xrpl.org/transactions/B92C23BADE5864569F82BB65B60F84D3B6A8C59A75FC1E75B3DF2A5121A4DA77)
+[![Genesis TX](https://img.shields.io/badge/genesis-AI%E2%86%92AI%20on%20mainnet-orange)](https://dnsofmoney.com/blog/first-ai-to-ai-payment.html?utm_source=github&utm_medium=readme&utm_campaign=genesis)
+[![CC BY 4.0](https://img.shields.io/badge/spec_license-CC%20BY%204.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
+
+**Live:** [`dnsofmoney.com`](https://dnsofmoney.com/?utm_source=github&utm_medium=readme&utm_campaign=home) · **Spec:** [`dnsofmoney.com/fas-1/`](https://dnsofmoney.com/fas-1/?utm_source=github&utm_medium=readme&utm_campaign=spec) · **API:** [`api.dnsofmoney.com`](https://api.dnsofmoney.com) · **Free API key:** [request access](https://dnsofmoney.com/?utm_source=github&utm_medium=readme&utm_campaign=apikey#get-key)
 
 > **We are not a bank. We are the layer above it.**
 
