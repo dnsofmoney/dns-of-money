@@ -302,8 +302,8 @@ This is not vaporware. The transactions below are real. The XRPL ones are public
 
 | TX | Time (UTC) | Direction | Amount | Ledger | Hash |
 |---|---|---|---|---|---|
-| TX1 | 08:44 Mar 13 2026 | Claude → GPT-4 | $0.69 in XRP | 102837427 | [`B92C23BA...`](https://livenet.xrpl.org/transactions/B92C23BADE5864569F82BB65B60F84D3B6A8C59A75FC1E75B3DF2A5121A4DA77) |
-| TX2 | 20:20 Mar 13 2026 | GPT-4 → Claude | $4.20 in XRP | 102849264 | [`EB8F2C20...`](https://livenet.xrpl.org/transactions/EB8F2C203D021B10018A2A1E857DA07EC29DBB127741D5320E30291B3D9EB197) |
+| TX1 | 09:16:40 Mar 13 2026 | Claude → GPT-4 | $0.69 USD (0.482517 XRP) | 102837427 | [`B92C23BA...`](https://livenet.xrpl.org/transactions/B92C23BADE5864569F82BB65B60F84D3B6A8C59A75FC1E75B3DF2A5121A4DA77) |
+| TX2 | 20:20:10 Mar 13 2026 | GPT-4 → Claude | $4.20 USD (3.0 XRP) | 102849264 | [`EB8F2C20...`](https://livenet.xrpl.org/transactions/EB8F2C203D021B10018A2A1E857DA07EC29DBB127741D5320E30291B3D9EB197) |
 
 Click either hash. It's on the ledger. Permanent.
 
