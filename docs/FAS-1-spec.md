@@ -62,7 +62,7 @@ label-char           = ALPHA / DIGIT
 label-char-or-hyphen = ALPHA / DIGIT / "-"
 ```
 
-Consecutive dots (`..`) are not permitted. The URI must contain at least one dot after `pay:`.
+Consecutive dots (`..`) are not permitted. A single-label form (e.g., `pay:genesis`) is valid — see §2.3.
 
 ### 2.3 Valid Examples
 
@@ -76,13 +76,13 @@ pay:enterprise.treasury
 pay:contractor.jay
 ```
 
-> **Note:** Single-label form (e.g., `pay:javaris`) is reserved for root namespace registrations only. Standard user registration requires the `namespace.identifier` form.
+> **Note:** Single-label form (e.g., `pay:genesis`, `pay:architect`) is valid for people, brands, and founding-tier registrations — dots imply hierarchy, not name structure (§2.5). Only the *reserved* single-labels in Appendix A (e.g., `pay:admin`) are blocked; reserved root **namespaces** are the wildcard forms in §3.1.
 
 ### 2.4 Invalid Examples
 
 ```
 PAY:vendor.alpha      ← uppercase not permitted
-pay:vendor            ← single-label reserved for root namespaces
+pay:admin             ← reserved single-label (see Appendix A)
 pay:vendor..alpha     ← consecutive dots not permitted
 pay:-vendor.alpha     ← leading hyphen not permitted
 pay:vendor.alpha-     ← trailing hyphen not permitted
@@ -161,6 +161,7 @@ Accept: application/json
 {
   "alias": "pay:vendor.alpha",
   "resolved": true,
+  "preferred_rail": "fednow",
   "entity": {
     "display_name": "Alpha Vendors LLC",
     "entity_type": "vendor",
@@ -270,7 +271,7 @@ All five checks must pass before a registration is committed. No partial writes 
 | 1 | **FAS-1 format** — alias passes syntax validation per Section 2 |
 | 2 | **Availability** — alias is not `taken` or `reserved` |
 | 3 | **Payment verification** — `payment_tx_hash` is a validated XRPL transaction of the correct fee to the registry wallet from `xrpl_address` |
-| 4 | **Cap check** — founding tier count < 500 (atomic `SELECT FOR UPDATE`) |
+| 4 | **Cap check** — founding tier count < 600 (atomic `SELECT FOR UPDATE`) |
 | 5 | **Wallet uniqueness** — `xrpl_address` has not already registered a founding tier name |
 
 ### 5.3 Availability Check
@@ -294,7 +295,7 @@ No authentication required. Returns one of three states:
 | `INVALID_ALIAS_FORMAT` | 422 | Fails FAS-1 syntax |
 | `ALIAS_TAKEN` | 409 | Already registered |
 | `ALIAS_RESERVED` | 409 | Root or protected namespace |
-| `FOUNDING_CAP_REACHED` | 409 | 500-name founding cap is full |
+| `FOUNDING_CAP_REACHED` | 409 | 600-name founding cap is full |
 | `WALLET_ALREADY_REGISTERED` | 409 | This XRPL address already has a founding name |
 | `PAYMENT_NOT_VERIFIED` | 402 | TX hash not found on-chain or not yet validated |
 | `PAYMENT_INSUFFICIENT` | 402 | Payment amount below required fee |
@@ -308,8 +309,8 @@ No authentication required. Returns one of three states:
 
 | Parameter | Value |
 |---|---|
-| Total founding slots | 500 |
-| Fee | 5 XRP (flat) |
+| Total founding slots | 600 |
+| Fee | Tiered launch pricing (current tier 1 XRP — see live `/api/v1/founding/status`) |
 | Names per wallet | 1 |
 | Grandfathering | Permanent — founding tier is encoded on-chain and cannot be revoked |
 | Anchor | XRPL mainnet memo TX |
@@ -323,7 +324,7 @@ Every founding tier registration is anchored on XRPL mainnet via a 1-drop paymen
 ```json
 {
   "p": "FAS-1",
-  "v": "1.0",
+  "v": "0.2",
   "t": "founding",
   "a": "pay:vendor.alpha",
   "w": "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH",
@@ -340,7 +341,7 @@ Every founding tier registration is anchored on XRPL mainnet via a 1-drop paymen
 | `a` | The `pay:` alias being registered |
 | `w` | Registrant XRPL wallet address |
 | `ts` | ISO 8601 timestamp of registration |
-| `n` | Sequence number within the founding cohort (1–500) |
+| `n` | Sequence number within the founding cohort (1–600) |
 
 **XRPL Memo encoding:**
 
@@ -492,7 +493,7 @@ Implementation MUST call a ledger verification function (e.g., `_verify_tx_on_le
 
 ### 10.2 Founding Cap Atomicity
 
-The 500-name founding cap MUST be enforced with `SELECT ... FOR UPDATE` inside the same database transaction as the INSERT. Enforcing the cap check and INSERT in separate transactions creates a race condition that allows cap overflow.
+The 600-name founding cap MUST be enforced with `SELECT ... FOR UPDATE` inside the same database transaction as the INSERT. Enforcing the cap check and INSERT in separate transactions creates a race condition that allows cap overflow.
 
 ### 10.3 Wallet Uniqueness
 
@@ -558,7 +559,7 @@ pay:null
 import re
 
 FAS1_PATTERN = re.compile(
-    r'^pay:[a-z0-9][a-z0-9\-]*(\.[a-z0-9][a-z0-9\-]*)+$'
+    r'^pay:[a-z0-9][a-z0-9\-]*(\.[a-z0-9][a-z0-9\-]*)*$'
 )
 MAX_LENGTH = 128
 
