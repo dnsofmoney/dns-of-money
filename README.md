@@ -3,7 +3,7 @@
 > *"In another time's forgotten space"*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![FAS-1 Spec](https://img.shields.io/badge/spec-FAS--1%20v0.2-green)](https://dnsofmoney.com/fas-1/?utm_source=github&utm_medium=readme&utm_campaign=spec)
+[![FAS-1 Spec](https://img.shields.io/badge/spec-FAS--1%20v0.1%20(v0.2%20draft)-green)](https://dnsofmoney.com/fas-1/?utm_source=github&utm_medium=readme&utm_campaign=spec)
 [![XRPL Mainnet](https://img.shields.io/badge/XRPL-live%20on%20mainnet-brightgreen)](https://livenet.xrpl.org/transactions/B92C23BADE5864569F82BB65B60F84D3B6A8C59A75FC1E75B3DF2A5121A4DA77)
 [![Genesis TX](https://img.shields.io/badge/genesis-AI%E2%86%92AI%20on%20mainnet-orange)](https://dnsofmoney.com/blog/first-ai-to-ai-payment.html?utm_source=github&utm_medium=readme&utm_campaign=genesis)
 [![CC BY 4.0](https://img.shields.io/badge/spec_license-CC%20BY%204.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
@@ -35,7 +35,7 @@ No raw wallet addresses. No routing numbers in UX. One identifier that works eve
 **The agent address resolution gap.** AI agents can now transact autonomously — but there is no standard way to name them, register them, and convert those names into payment endpoints. AP2, A2A, and MCP all have this gap. FAS-1 is the answer.
 
 > *"Discoverability is a known gap. There is no way to register agents, name them, and convert those names into payment endpoints."*
-> — FAS-1 v0.2, AP2 gap analysis
+> — FAS-1 v0.2 (draft), AP2 gap analysis
 
 DNS of Money is the naming and resolution layer for agentic commerce.
 
@@ -53,7 +53,7 @@ DNS of Money is the naming and resolution layer for agentic commerce.
 │         ┌────────────────────┼────────────────────┐         │
 │         ▼                    ▼                    ▼         │
 │    XRPL Adapter         FedNow Adapter       ACH Adapter    │
-│    (XRPL mainnet)       (instant USD)        (Column)       │
+│    (XRPL mainnet)       (instant USD)        (licensed BaaS)│
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -97,11 +97,14 @@ label    = 1*63( ALPHA / DIGIT / "-" )
 ```
 
 Rules:
-- Lowercase only
+- Lowercase only; NFC + Punycode for non-ASCII labels
 - Dots are hierarchy separators, not name separators
-- People and brands: `firstlast` (no dots) — e.g., `pay:elonmusk`
-- Max 128 characters
-- Regex: `^pay:[a-z0-9][a-z0-9\-]*(\.[a-z0-9][a-z0-9\-]*)+$`
+- Max 63 characters per label, 128 total; min 3 total
+- No leading/trailing hyphens; no consecutive dots
+- **v0.1 (current):** at least one dot required — `pay:namespace.label`
+- **v0.2 (draft):** single-label addresses for people and brands — `pay:elonmusk`
+- Regex (v0.1): `^pay:[a-z0-9][a-z0-9\-]*(\.[a-z0-9][a-z0-9\-]*)+$`
+- Regex (v0.2 draft): `^pay:[a-z0-9][a-z0-9\-]*(\.[a-z0-9][a-z0-9\-]*)*$`
 
 Full spec: [`docs/FAS-1-spec.md`](docs/FAS-1-spec.md) · License: CC BY 4.0
 
@@ -132,10 +135,15 @@ Full spec: [`docs/FAS-1-spec.md`](docs/FAS-1-spec.md) · License: CC BY 4.0
     }
   ],
   "iso20022_hint": "pacs.008.001.08",
+  "iso20022_map": { "cdtr_nm": "Alpha Vendors LLC", "cdtr_acct_tp": "CACC", "ccy": "USD" },
+  "compliance": { "sanctions_checked": true, "fatf_risk_rating": "low", "requires_purpose_code": false },
   "ttl_seconds": 300,
   "resolved_at": "2026-03-20T00:00:00Z"
 }
 ```
+
+> Account and routing numbers are never returned at authorization levels 0–1. Full field
+> list, authorization levels, and error codes: [`docs/FAS-1-spec.md`](docs/FAS-1-spec.md).
 
 ---
 
@@ -282,7 +290,7 @@ Each founding name includes:
 - Permanent — cannot be revoked
 - Hard cap enforced atomically: `SELECT ... FOR UPDATE` inside the registration transaction
 
-**Check remaining spots:** `GET /api/api/v1/founding/status`
+**Check remaining spots:** `GET /api/v1/founding/status`
 
 ---
 
@@ -299,15 +307,7 @@ This is not vaporware. The transactions below are real. The XRPL ones are public
 
 Click either hash. It's on the ledger. Permanent.
 
-### Column ACH — Traditional Banking Rail Confirmed
-
-| TX | Time (UTC) | Description | Transaction ID | Status |
-|---|---|---|---|---|
-| TX3 | 09:45 Mar 15 2026 | Claude → GPT-4 compute services | `acht_3AybmiRrSDNCmOtONX1yfPjiYUw` | Settled |
-
-Column ACH operates on a private banking rail — no public explorer. The transaction ID is the canonical record. This confirms the traditional rails work alongside the blockchain rails.
-
-Bidirectional AI payment rail: proven. First inter-AI payments on XRPL mainnet and ACH. On-chain where possible, verifiable where not.
+Bidirectional AI payment rail: proven on XRPL mainnet — publicly verifiable on-chain.
 
 ### Agent Verification — AI-to-API Resolution Proven
 
@@ -442,16 +442,15 @@ Authentication: `X-API-Key` header required for all write operations.
 - Founding mint page with live counter at [dnsofmoney.com](https://dnsofmoney.com)
 - Claim page: wallet connect via Xaman, burn option
 - XRPL payment rail (mainnet, proven)
-- ACH integration (sandbox)
+- ACH adapter (mock / not yet live — no real ACH settlement to date)
 - OFAC sanctions screening
 - ISO 20022 hint generation
 - Founding tier (600-name hard cap, 33 minted, on-chain proof)
 - 41 root namespaces anchored on XRPL mainnet
 - Agent verification: first AI agent resolved + verified + witnessed payment
 - Marketing site live at [dnsofmoney.com](https://dnsofmoney.com) with SSL
-- CDN-ready nginx with rate limiting + IPFS proxy
-- AWS SSM secrets management
-- EC2 deployment, HTTPS live (`api.dnsofmoney.com`)
+- Rate limiting + IPFS proxy at the edge
+- Managed secrets + HTTPS API live (`api.dnsofmoney.com`)
 - 1,114 tests passing
 
 ### Roadmap 🗺️
