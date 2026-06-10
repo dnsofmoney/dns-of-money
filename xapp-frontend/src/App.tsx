@@ -89,7 +89,7 @@ function StepBar({ current }: { current: 1 | 2 | 3 }) {
                     width: 28,
                     height: 28,
                     borderRadius: "50%",
-                    background: done ? "linear-gradient(135deg, var(--xapp-gold), #d4a055)" : active ? "linear-gradient(135deg, var(--xapp-accent), var(--xapp-accent-light))" : "var(--xapp-surface-muted)",
+                    background: done ? "var(--xapp-gold)" : active ? "linear-gradient(135deg, var(--xapp-accent), var(--xapp-accent-light))" : "var(--xapp-surface-muted)",
                     color: done || active ? "#fff" : "var(--xapp-text)",
                     display: "flex",
                     alignItems: "center",
@@ -119,7 +119,7 @@ function StepBar({ current }: { current: 1 | 2 | 3 }) {
                   style={{
                     flex: 1,
                     height: 1,
-                    background: done ? "linear-gradient(135deg, var(--xapp-gold), #d4a055)" : "var(--xapp-surface-muted)",
+                    background: done ? "var(--xapp-gold)" : "var(--xapp-surface-muted)",
                     margin: "0 6px",
                     marginBottom: 18,
                     transition: "background 0.2s",
@@ -313,7 +313,7 @@ function RegisterScreen() {
               width: 64,
               height: 64,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, var(--xapp-gold), #d4a055)",
+              background: "var(--xapp-gold)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -354,7 +354,7 @@ function RegisterScreen() {
               width: 72,
               height: 72,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, var(--xapp-gold), #d4a055)",
+              background: "var(--xapp-gold)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -534,7 +534,7 @@ function RegisterScreen() {
             width: 64,
             height: 64,
             borderRadius: "50%",
-            border: "3px solid var(--xapp-gold)",
+            border: "3px solid var(--xapp-accent)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -682,7 +682,7 @@ function SendScreen() {
           <div
             style={{
               width: 64, height: 64, borderRadius: "50%",
-              background: "linear-gradient(135deg, var(--xapp-gold), #d4a055)", display: "flex",
+              background: "var(--xapp-gold)", display: "flex",
               alignItems: "center", justifyContent: "center",
               margin: "0 auto 20px", fontSize: 28, color: "#fff",
             }}
@@ -815,7 +815,7 @@ function Btn({ children, onClick, disabled, active, gold, style }: {
   style?: React.CSSProperties;
 }) {
   const activeBg = gold
-    ? "linear-gradient(135deg, var(--xapp-gold), #d4a055)"
+    ? "var(--xapp-gold)"
     : "linear-gradient(135deg, var(--xapp-accent), var(--xapp-accent-light))";
   return (
     <button

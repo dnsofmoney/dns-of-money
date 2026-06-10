@@ -6,27 +6,27 @@
  * (LIGHT / DARK / MOONLIGHT / ROYAL). Components should consume var(--xapp-*)
  * instead of hardcoding colors — non-negotiable #7 per xaman-xapp-frontend skill.
  *
- * TODO: Palette migration QUEUED (separate sprint after brand kit v2 shipped).
- * Current palette = cornflower-blue #95A9CE + gold success (commit ade722c,
- * 2026-04-30). Target = teal #00c4b4 accent + red #e8001c CTA, matching the
- * marketing site (financial-autonomy-stack/marketing, design-swap-teal-primary
- * branch). Source of truth = financial-autonomy-stack/_canon/brand-kit.md
- * (Phase E v2 shipped 2026-05-12). Migration sprint to follow.
+ * Palette: teal #00c4b4 accent (+ glow #00e5c3), red #e8001c for danger/CTA,
+ * green for success/celebration — matching the marketing site. Source of truth
+ * = financial-autonomy-stack/_canon/brand-kit.md (Phase E v2, locked palette).
+ * The cornflower-blue #95A9CE + gold palette (commit ade722c) is retired.
+ * NOTE: --xapp-gold is retained as the success/celebration token (now green);
+ * the name is legacy — treat it as "success accent," not literal gold.
  */
 
 :root {
   --xapp-bg: transparent;
-  --xapp-text: #1f2937;
-  --xapp-text-muted: #6b7280;
-  --xapp-surface: #f3f4f6;
-  --xapp-surface-muted: #e5e7eb;
-  --xapp-border: #e5e7eb;
-  --xapp-accent: #95a9ce;
-  --xapp-accent-light: #b0c0db;
-  --xapp-gold: #e5b567;
-  --xapp-success: #4caf50;
-  --xapp-warning: #f59e0b;
-  --xapp-danger: #ef4444;
+  --xapp-text: #0a0619;
+  --xapp-text-muted: #6b6584;
+  --xapp-surface: #f5f7f9;
+  --xapp-surface-muted: #eceef1;
+  --xapp-border: rgba(10, 6, 25, 0.1);
+  --xapp-accent: #00c4b4;
+  --xapp-accent-light: #00e5c3;
+  --xapp-gold: #2e9e57;
+  --xapp-success: #2e9e57;
+  --xapp-warning: #b7791f;
+  --xapp-danger: #e8001c;
 }
 
 html,
