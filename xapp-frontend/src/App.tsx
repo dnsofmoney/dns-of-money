@@ -587,6 +587,7 @@ function SendScreen() {
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewErr, setPreviewErr] = useState("");
   const [amount, setAmount] = useState("1");
+  const [memo, setMemo] = useState("");
   const [phase, setPhase] = useState<SendPhase>("idle");
   const [txid, setTxid] = useState("");
   const [errMsg, setErrMsg] = useState("");
@@ -629,7 +630,7 @@ function SendScreen() {
         "/api/v1/send/create-payment",
         {
           method: "POST",
-          body: JSON.stringify({ alias: alias.trim(), amount: amt }),
+          body: JSON.stringify({ alias: alias.trim(), amount: amt, memo: memo.trim() || undefined }),
         },
       );
       if (!resp.data?.uuid) throw new Error("No payload UUID returned");
@@ -668,7 +669,7 @@ function SendScreen() {
 
   function reset() {
     setPhase("idle"); setErrMsg(""); setTxid("");
-    setAlias("pay:"); setPreview(null); setPreviewErr(""); setAmount("1");
+    setAlias("pay:"); setPreview(null); setPreviewErr(""); setAmount("1"); setMemo("");
   }
 
   const inputsReady = !!preview && !previewErr && parseFloat(amount) > 0;
@@ -734,6 +735,17 @@ function SendScreen() {
             type="number" min="0.000001" step="0.1"
             value={amount} onChange={(e) => setAmount(e.target.value)}
             style={inputStyle} inputMode="decimal"
+          />
+
+          <Label style={{ marginTop: 20 }}>Memo (optional)</Label>
+          <input
+            value={memo}
+            onChange={(e) => setMemo(e.target.value.slice(0, 256))}
+            placeholder="What's this for?"
+            style={inputStyle}
+            maxLength={256}
+            autoCapitalize="sentences"
+            inputMode="text"
           />
         </>
       )}
