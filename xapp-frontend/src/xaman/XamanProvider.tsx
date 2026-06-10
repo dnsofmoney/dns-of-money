@@ -241,9 +241,15 @@ const THEMES: Record<XappStyle, Record<string, string>> = {
   },
 };
 
-function applyXappStyle(style: string): void {
+function applyXappStyle(_style: string): void {
+  // Brand lock: the xApp always renders the teal-on-white LIGHT palette to
+  // match the marketing site and brand-kit-v2, regardless of the Xaman host's
+  // active theme (LIGHT/DARK/MOONLIGHT/ROYAL). Previously we followed
+  // context.style, so any user whose Xaman was in dark mode saw the near-black
+  // surfaces instead of teal + white. The other THEMES entries are retained
+  // for reference but are intentionally no longer selected.
   const root = document.documentElement;
-  const theme = THEMES[style as XappStyle] ?? THEMES.LIGHT;
+  const theme = THEMES.LIGHT;
   for (const [key, value] of Object.entries(theme)) {
     root.style.setProperty(key, value);
   }
