@@ -190,6 +190,15 @@ export async function closeXapp(
 }
 
 /**
+ * Opens an external URL in the device browser via the Xaman host. Used to hand
+ * off to third-party flows (e.g. the MoonPay on-ramp widget) that must run
+ * outside the xApp WebView. Fire-and-forget — the host does not ack.
+ */
+export function openBrowser(url: string): void {
+  sendCommand("openBrowser", { url });
+}
+
+/**
  * Opens a Xaman sign-request payload for the user to approve / reject.
  * The host replies with {method:"openSignRequest", signed, txid, ...}.
  */
