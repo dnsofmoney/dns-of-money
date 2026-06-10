@@ -45,10 +45,45 @@ body {
 }
 
 #root {
+  position: relative;
   min-height: 100vh;
   background: var(--xapp-bg);
   padding: 16px;
   box-sizing: border-box;
+}
+
+/*
+ * Brand background — ported verbatim from the marketing /mint page
+ * (financial-autonomy-stack/app/templates/mint.html): a soft radial glow
+ * plus a 60px diamond mesh, so the xApp matches the site. Both layers are
+ * fixed, non-interactive, and sit at z-index 0; Shell content sits above.
+ */
+#root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0, 196, 180, 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 80% at 85% 10%, rgba(30, 115, 190, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 10% 90%, rgba(0, 196, 180, 0.04) 0%, transparent 60%);
+}
+
+#root::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.7;
+  background-image:
+    linear-gradient(45deg, rgba(10, 6, 25, 0.025) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(10, 6, 25, 0.025) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(10, 6, 25, 0.025) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(10, 6, 25, 0.025) 75%);
+  background-size: 60px 60px;
+  background-position: 0 0, 0 30px, 30px -30px, -30px 0;
 }
 
 button {
