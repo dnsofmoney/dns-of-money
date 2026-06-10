@@ -2,26 +2,25 @@ import { useState, useRef, useEffect } from "react";
 import { useXaman } from "./xaman/useXaman";
 import { ApiError, useApiClient } from "./api/client";
 import { openBrowser, openSignRequest } from "./xaman/sdk";
+import { useT, useI18n, useXamanLocale, SUPPORTED, LOCALE_LABELS, type TFunc } from "./i18n";
 
 type Screen = "register" | "send" | "gallery" | "buy";
-
-const TAB_LABELS: Record<Screen, string> = {
-  register: "Get Alias",
-  send: "Send",
-  gallery: "Gallery",
-  buy: "Buy",
-};
 
 export default function App() {
   const { session, loading, error } = useXaman();
   const [screen, setScreen] = useState<Screen>("register");
+  const t = useT();
+
+  // Apply the Xaman-reported locale once the session resolves (unless the user
+  // has manually chosen a language). Hook runs unconditionally, before returns.
+  useXamanLocale(session?.context.locale);
 
   if (loading) return <Spinner />;
   if (error || !session) {
     return (
       <CenteredMsg>
         <p style={{ color: "var(--xapp-danger)", fontSize: "0.9em", margin: 0 }}>
-          {error ?? "Session unavailable — relaunch the xApp."}
+          {error ?? t("common.sessionUnavailable")}
         </p>
       </CenteredMsg>
     );
@@ -40,6 +39,7 @@ export default function App() {
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
 function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) => void }) {
+  const t = useT();
   return (
     <nav
       style={{
@@ -70,7 +70,7 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
             transition: "color 0.15s, opacity 0.15s",
           }}
         >
-          {TAB_LABELS[s]}
+          {t(`tabs.${s}`)}
         </button>
       ))}
     </nav>
@@ -80,7 +80,8 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
 // ── Step indicator ────────────────────────────────────────────────────────────
 
 function StepBar({ current }: { current: 1 | 2 | 3 }) {
-  const labels = ["Choose name", "Confirm", "Sign"];
+  const t = useT();
+  const labels = [t("steps.chooseName"), t("steps.confirm"), t("steps.sign")];
   return (
     <div style={{ marginBottom: 32 }}>
       <div style={{ display: "flex", alignItems: "center" }}>
@@ -155,18 +156,23 @@ interface CreateMintData {
 
 type ClaimPhase = "idle" | "claiming" | "claimed" | "error";
 
-// Identity pipeline status → user-facing label. Mirrors the /mint page state
-// machine (app/templates/mint.html). Terminal states: "complete" (offer ready
-// to claim) and the *_failed states (auto-retried server-side).
-const MINT_STATUS_LABEL: Record<string, string> = {
-  pending: "Preparing…",
-  registered: "Preparing…",
-  rendering: "Rendering your identity…",
-  genome_stored: "Uploading to IPFS…",
-  uploading: "Uploading to IPFS…",
-  minting: "Minting on the XRP Ledger…",
-  complete: "Identity minted",
+// Identity pipeline status → i18n key under mintStatus. Mirrors the /mint page
+// state machine (app/templates/mint.html). Terminal states: "complete" (offer
+// ready to claim) and the *_failed states (auto-retried server-side).
+const MINT_STATUS_KEY: Record<string, string> = {
+  pending: "preparing",
+  registered: "preparing",
+  rendering: "rendering",
+  genome_stored: "uploading",
+  uploading: "uploading",
+  minting: "minting",
+  complete: "complete",
 };
+
+function mintStatusLabel(t: TFunc, status: string): string {
+  const key = MINT_STATUS_KEY[status];
+  return key ? t(`mintStatus.${key}`) : t("mintStatus.working");
+}
 
 function ipfsToUrl(uri: string, base: string): string {
   return uri.startsWith("ipfs://") ? `${base}/ipfs/${uri.slice(7)}` : uri;
@@ -175,6 +181,7 @@ function ipfsToUrl(uri: string, base: string): string {
 function RegisterScreen() {
   const { session } = useXaman();
   const { request } = useApiClient();
+  const t = useT();
   const apiBase = import.meta.env.VITE_API_BASE_URL as string;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -296,7 +303,7 @@ function RegisterScreen() {
         if (txid) {
           doRegister(aliasName, txid);
         } else {
-          setErrMsg(reason ?? "Rejected in Xaman");
+          setErrMsg(reason ?? t("common.rejectedInXaman"));
           setPhase("error");
           setStep(2);
         }
@@ -306,7 +313,7 @@ function RegisterScreen() {
         .then((r) => settle(r.signed ? r.txid : undefined, r.reason))
         .catch(() => {
           if (!settled) {
-            setErrMsg("Sign request timed out");
+            setErrMsg(t("common.signTimedOut"));
             setPhase("error");
             setStep(2);
           }
@@ -318,13 +325,13 @@ function RegisterScreen() {
           try {
             const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
             if (msg.signed === true) { ws.close(); settle(msg.txid as string | undefined); }
-            else if (msg.signed === false) { ws.close(); settle(undefined, "Rejected in Xaman"); }
+            else if (msg.signed === false) { ws.close(); settle(undefined, t("common.rejectedInXaman")); }
           } catch { /* ignore heartbeats */ }
         };
         ws.onerror = () => ws.close();
       }
     } catch (e) {
-      setErrMsg(e instanceof ApiError ? `Server error ${e.status}` : e instanceof Error ? e.message : String(e));
+      setErrMsg(e instanceof ApiError ? t("common.serverError", { status: e.status }) : e instanceof Error ? e.message : String(e));
       setPhase("error");
       setStep(2);
     }
@@ -346,7 +353,7 @@ function RegisterScreen() {
     } catch (e) {
       const msg =
         e instanceof ApiError
-          ? ((e.body as { message?: string } | null)?.message ?? `Server error ${e.status}`)
+          ? ((e.body as { message?: string } | null)?.message ?? t("common.serverError", { status: e.status }))
           : e instanceof Error ? e.message : String(e);
       setErrMsg(msg);
       setPhase("error");
@@ -368,12 +375,12 @@ function RegisterScreen() {
       if (r.signed) {
         setClaimPhase("claimed");
       } else {
-        setClaimErr(r.reason ?? "Rejected in Xaman");
+        setClaimErr(r.reason ?? t("common.rejectedInXaman"));
         setClaimPhase("error");
       }
     } catch (e) {
       setClaimErr(
-        e instanceof ApiError ? `Server error ${e.status}` : e instanceof Error ? e.message : String(e),
+        e instanceof ApiError ? t("common.serverError", { status: e.status }) : e instanceof Error ? e.message : String(e),
       );
       setClaimPhase("error");
     }
@@ -418,7 +425,7 @@ function RegisterScreen() {
           >
             ✓
           </div>
-          <h2 style={{ margin: "0 0 8px", fontSize: "1.2em" }}>You're already registered</h2>
+          <h2 style={{ margin: "0 0 8px", fontSize: "1.2em" }}>{t("register.alreadyTitle")}</h2>
           <code
             style={{
               display: "block",
@@ -431,7 +438,7 @@ function RegisterScreen() {
             {existingAlias}
           </code>
           <p style={{ opacity: 0.45, fontSize: "0.82em", margin: 0, padding: "0 24px", lineHeight: 1.5 }}>
-            One alias per wallet. Use the Send tab to pay anyone on DNS://Money.
+            {t("register.oneAliasPerWallet")}
           </p>
         </div>
       </Shell>
@@ -459,8 +466,8 @@ function RegisterScreen() {
           >
             ✓
           </div>
-          <h2 style={{ margin: "0 0 6px", fontSize: "1.4em" }}>You're in.</h2>
-          <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 20px" }}>Your alias is live on the XRP Ledger</p>
+          <h2 style={{ margin: "0 0 6px", fontSize: "1.4em" }}>{t("register.doneTitle")}</h2>
+          <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 20px" }}>{t("register.doneSubtitle")}</p>
           <code
             style={{
               display: "block",
@@ -490,15 +497,15 @@ function RegisterScreen() {
 
           {claimPhase === "claimed" ? (
             <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "0.9em", margin: "0 0 28px", padding: "0 24px" }}>
-              NFT claimed — it's in your Xaman wallet.
+              {t("register.nftClaimed")}
             </p>
           ) : nftReady ? (
             <div style={{ margin: "0 0 28px" }}>
               <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 14px", padding: "0 24px", lineHeight: 1.5 }}>
-                Your identity NFT is minted. Claim it to your wallet — no payment, just a signature.
+                {t("register.nftReadyHint")}
               </p>
               <Btn onClick={claimNft} active disabled={claimPhase === "claiming"}>
-                {claimPhase === "claiming" ? "Opening Xaman…" : "Claim NFT to wallet"}
+                {claimPhase === "claiming" ? t("register.openingXaman") : t("register.claimNft")}
               </Btn>
               {claimPhase === "error" && (
                 <p style={{ color: "var(--xapp-danger)", fontSize: "0.82em", margin: "10px 0 0" }}>{claimErr}</p>
@@ -506,17 +513,17 @@ function RegisterScreen() {
             </div>
           ) : mintStatus.endsWith("_failed") ? (
             <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
-              Minting hit a snag and is retrying automatically. Your alias is safe — check back shortly.
+              {t("register.mintRetrying")}
             </p>
           ) : (
             <p style={{ opacity: 0.55, fontSize: "0.82em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
-              {MINT_STATUS_LABEL[mintStatus] ?? "Working…"}
+              {mintStatusLabel(t, mintStatus)}
               <br />
-              <span style={{ opacity: 0.6 }}>This usually takes a minute or two.</span>
+              <span style={{ opacity: 0.6 }}>{t("register.mintTakesAMinute")}</span>
             </p>
           )}
 
-          <Btn onClick={reset} active>Register another</Btn>
+          <Btn onClick={reset} active>{t("register.registerAnother")}</Btn>
         </div>
       </Shell>
     );
@@ -530,9 +537,9 @@ function RegisterScreen() {
         <Header account={account} />
         <StepBar current={1} />
 
-        <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>Choose your name</h2>
+        <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("register.step1Title")}</h2>
         <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 24px" }}>
-          Your permanent payment alias on the XRP Ledger
+          {t("register.step1Subtitle")}
         </p>
 
         <div style={{ position: "relative" }}>
@@ -553,7 +560,7 @@ function RegisterScreen() {
           <input
             value={name}
             onChange={(e) => onNameChange(e.target.value)}
-            placeholder="yourname"
+            placeholder={t("register.namePlaceholder")}
             style={{ ...inputStyle, paddingLeft: 52 }}
             autoCapitalize="none"
             autoCorrect="off"
@@ -571,11 +578,11 @@ function RegisterScreen() {
               opacity: avail === "checking" ? 0.5 : 1,
             }}
           >
-            {avail === "checking" && "Checking…"}
-            {avail === "available" && "✓ Available"}
-            {avail === "taken" && "✗ Already taken"}
-            {avail === "reserved" && "✗ Reserved name"}
-            {avail === "invalid" && "✗ Invalid format"}
+            {avail === "checking" && t("avail.checking")}
+            {avail === "available" && t("avail.available")}
+            {avail === "taken" && t("avail.taken")}
+            {avail === "reserved" && t("avail.reserved")}
+            {avail === "invalid" && t("avail.invalid")}
           </p>
         )}
 
@@ -585,7 +592,7 @@ function RegisterScreen() {
           active={avail === "available"}
           style={{ marginTop: 28 }}
         >
-          Continue →
+          {t("register.continue")}
         </Btn>
       </Shell>
     );
@@ -599,9 +606,9 @@ function RegisterScreen() {
         <Header account={account} />
         <StepBar current={2} />
 
-        <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>Confirm your alias</h2>
+        <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("register.step2Title")}</h2>
         <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 24px" }}>
-          Review the details before signing
+          {t("register.step2Subtitle")}
         </p>
 
         <div
@@ -613,11 +620,11 @@ function RegisterScreen() {
             fontSize: "0.9em",
           }}
         >
-          <Row label="Alias" value={`pay:${name}`} />
-          <Row label="You get" value="Alias + identity NFT" />
-          {priceXrp !== null && <Row label="Cost" value={`${priceXrp} XRP`} />}
-          {remaining !== null && <Row label="Slots remaining" value={String(remaining)} />}
-          <Row label="Registered to" value={shortAddr(account)} mono />
+          <Row label={t("register.rowAlias")} value={`pay:${name}`} />
+          <Row label={t("register.rowYouGet")} value={t("register.youGetValue")} />
+          {priceXrp !== null && <Row label={t("register.rowCost")} value={t("register.costValue", { price: priceXrp })} />}
+          {remaining !== null && <Row label={t("register.rowSlotsRemaining")} value={String(remaining)} />}
+          <Row label={t("register.rowRegisteredTo")} value={shortAddr(account)} mono />
         </div>
 
         {phase === "error" && (
@@ -632,7 +639,7 @@ function RegisterScreen() {
           active={phase === "idle" || phase === "error"}
           style={{ marginTop: 24 }}
         >
-          {phase === "loading" ? "Preparing…" : "Register & Mint"}
+          {phase === "loading" ? t("common.preparing") : t("register.registerAndMint")}
         </Btn>
 
         <button
@@ -650,7 +657,7 @@ function RegisterScreen() {
             cursor: "pointer",
           }}
         >
-          ← Back
+          {t("common.back")}
         </button>
       </Shell>
     );
@@ -680,14 +687,14 @@ function RegisterScreen() {
         >
           ✍
         </div>
-        <h2 style={{ margin: "0 0 8px", fontSize: "1.2em" }}>Sign in Xaman</h2>
+        <h2 style={{ margin: "0 0 8px", fontSize: "1.2em" }}>{t("register.step3Title")}</h2>
         <p style={{ opacity: 0.5, fontSize: "0.88em", margin: "0 0 8px", padding: "0 24px" }}>
           {phase === "registering"
-            ? "Registering your alias…"
-            : "Review and approve the payment in your Xaman wallet."}
+            ? t("register.registeringAlias")
+            : t("register.approveInXaman")}
         </p>
         <p style={{ opacity: 0.35, fontSize: "0.78em", margin: 0 }}>
-          {phase === "registering" ? "Almost done" : "Waiting for signature…"}
+          {phase === "registering" ? t("register.almostDone") : t("common.waitingSignature")}
         </p>
       </div>
     </Shell>
@@ -717,6 +724,7 @@ type SendPhase = "idle" | "loading" | "signing" | "done" | "error";
 function SendScreen() {
   const { session } = useXaman();
   const { request } = useApiClient();
+  const t = useT();
   const apiBase = import.meta.env.VITE_API_BASE_URL as string;
 
   const [alias, setAlias] = useState("pay:");
@@ -747,9 +755,9 @@ function SendScreen() {
         setPreview(data);
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) {
-          setPreviewErr("Alias not found");
+          setPreviewErr(t("send.aliasNotFound"));
         } else {
-          setPreviewErr("Could not resolve alias");
+          setPreviewErr(t("send.couldNotResolve"));
         }
       }
     }, 600);
@@ -779,12 +787,12 @@ function SendScreen() {
         if (settled) return;
         settled = true;
         if (signed && txid) { setTxid(txid); setPhase("done"); }
-        else { setErrMsg(reason ?? "Rejected in Xaman"); setPhase("error"); }
+        else { setErrMsg(reason ?? t("common.rejectedInXaman")); setPhase("error"); }
       }
 
       openSignRequest(uuid)
         .then((r) => settle(r.signed, r.txid, r.reason))
-        .catch(() => { if (!settled) { setErrMsg("Sign request timed out"); setPhase("error"); } });
+        .catch(() => { if (!settled) { setErrMsg(t("common.signTimedOut")); setPhase("error"); } });
 
       if (websocket_status) {
         const ws = new WebSocket(websocket_status);
@@ -792,13 +800,13 @@ function SendScreen() {
           try {
             const msg = JSON.parse(ev.data as string) as Record<string, unknown>;
             if (msg.signed === true) { ws.close(); settle(true, msg.txid as string | undefined); }
-            else if (msg.signed === false) { ws.close(); settle(false, undefined, "Rejected in Xaman"); }
+            else if (msg.signed === false) { ws.close(); settle(false, undefined, t("common.rejectedInXaman")); }
           } catch { /* ignore heartbeats */ }
         };
         ws.onerror = () => ws.close();
       }
     } catch (e) {
-      setErrMsg(e instanceof ApiError ? `Server error ${e.status}` : e instanceof Error ? e.message : String(e));
+      setErrMsg(e instanceof ApiError ? t("common.serverError", { status: e.status }) : e instanceof Error ? e.message : String(e));
       setPhase("error");
     }
   }
@@ -826,12 +834,12 @@ function SendScreen() {
           >
             ✓
           </div>
-          <h2 style={{ margin: "0 0 6px", fontSize: "1.3em" }}>Sent!</h2>
-          <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 4px" }}>Transaction ID</p>
+          <h2 style={{ margin: "0 0 6px", fontSize: "1.3em" }}>{t("send.sentTitle")}</h2>
+          <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 4px" }}>{t("send.transactionId")}</p>
           <code style={{ fontSize: "0.72em", wordBreak: "break-all", display: "block", padding: "0 16px", opacity: 0.7 }}>
             {txid}
           </code>
-          <Btn onClick={reset} active style={{ marginTop: 32 }}>Send again</Btn>
+          <Btn onClick={reset} active style={{ marginTop: 32 }}>{t("send.sendAgain")}</Btn>
         </div>
       </Shell>
     );
@@ -841,11 +849,11 @@ function SendScreen() {
     <Shell>
       <Header account={ctx.account} />
 
-      <Label>Send to alias</Label>
+      <Label>{t("send.sendToAlias")}</Label>
       <input
         value={alias}
         onChange={(e) => onAliasChange(e.target.value)}
-        placeholder="pay:name"
+        placeholder={t("send.aliasPlaceholder")}
         style={inputStyle}
         autoCapitalize="none"
         autoCorrect="off"
@@ -861,9 +869,9 @@ function SendScreen() {
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", display: "block", margin: "2px auto 12px", border: "1px solid var(--xapp-border)" }}
           />
-          <Row label="To" value={preview.display_name ?? preview.alias} />
-          <Row label="Address" value={preview.destination_address ?? "—"} mono />
-          {preview.fee_estimate && <Row label="Fee" value={preview.fee_estimate} />}
+          <Row label={t("send.rowTo")} value={preview.display_name ?? preview.alias} />
+          <Row label={t("send.rowAddress")} value={preview.destination_address ?? "—"} mono />
+          {preview.fee_estimate && <Row label={t("send.rowFee")} value={preview.fee_estimate} />}
         </div>
       )}
       {previewErr && (
@@ -872,18 +880,18 @@ function SendScreen() {
 
       {preview && (
         <>
-          <Label style={{ marginTop: 20 }}>Amount (XRP)</Label>
+          <Label style={{ marginTop: 20 }}>{t("send.amountLabel")}</Label>
           <input
             type="number" min="0.000001" step="0.1"
             value={amount} onChange={(e) => setAmount(e.target.value)}
             style={inputStyle} inputMode="decimal"
           />
 
-          <Label style={{ marginTop: 20 }}>Memo (optional)</Label>
+          <Label style={{ marginTop: 20 }}>{t("send.memoLabel")}</Label>
           <input
             value={memo}
             onChange={(e) => setMemo(e.target.value.slice(0, 256))}
-            placeholder="What's this for?"
+            placeholder={t("send.memoPlaceholder")}
             style={inputStyle}
             maxLength={256}
             autoCapitalize="sentences"
@@ -902,7 +910,7 @@ function SendScreen() {
         active={canSend}
         style={{ marginTop: 24 }}
       >
-        {phase === "loading" ? "Preparing…" : phase === "signing" ? "Waiting for signature…" : "Sign & Send"}
+        {phase === "loading" ? t("common.preparing") : phase === "signing" ? t("common.waitingSignature") : t("send.signAndSend")}
       </Btn>
     </Shell>
   );
@@ -922,6 +930,7 @@ interface GalleryItem {
 function GalleryScreen() {
   const { session } = useXaman();
   const { request } = useApiClient();
+  const t = useT();
   const apiBase = import.meta.env.VITE_API_BASE_URL as string;
   const account = session!.context.account;
 
@@ -931,21 +940,21 @@ function GalleryScreen() {
   useEffect(() => {
     request<{ success: boolean; data: GalleryItem[] }>("/api/v1/founding/gallery", { method: "GET" })
       .then((r) => setItems(r.data ?? []))
-      .catch(() => setErr("Could not load the gallery — try again shortly."));
+      .catch(() => setErr(t("gallery.loadError")));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Shell>
       <Header account={account} />
-      <h2 style={{ margin: "0 0 4px", fontSize: "1.2em" }}>Founding identities</h2>
+      <h2 style={{ margin: "0 0 4px", fontSize: "1.2em" }}>{t("gallery.title")}</h2>
       <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 20px" }}>
-        {items ? `${items.length} minted on the XRP Ledger` : "Loading…"}
+        {items ? t("gallery.countMinted", { count: items.length }) : t("common.loading")}
       </p>
 
       {err && <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em" }}>{err}</p>}
 
       {items && items.length === 0 && !err && (
-        <p style={{ opacity: 0.5, fontSize: "0.85em" }}>No identities minted yet.</p>
+        <p style={{ opacity: 0.5, fontSize: "0.85em" }}>{t("gallery.empty")}</p>
       )}
 
       {items && items.length > 0 && (
@@ -983,6 +992,7 @@ type BuyPhase = "idle" | "preparing" | "opened" | "error";
 function BuyScreen() {
   const { session } = useXaman();
   const { request } = useApiClient();
+  const t = useT();
   const account = session!.context.account;
 
   const [alias, setAlias] = useState("pay:");
@@ -1007,10 +1017,10 @@ function BuyScreen() {
         );
         setResolved(data);
       } catch (e) {
-        if (e instanceof ApiError && e.status === 404) setResolveErr("Alias not found");
-        else if (e instanceof ApiError && e.status === 422) setResolveErr("Alias has no XRPL address");
-        else if (e instanceof ApiError && e.status === 503) setResolveErr("Buy isn't available right now");
-        else setResolveErr("Could not resolve alias");
+        if (e instanceof ApiError && e.status === 404) setResolveErr(t("buy.aliasNotFound"));
+        else if (e instanceof ApiError && e.status === 422) setResolveErr(t("buy.noXrplAddress"));
+        else if (e instanceof ApiError && e.status === 503) setResolveErr(t("buy.notAvailable"));
+        else setResolveErr(t("buy.couldNotResolve"));
       }
     }, 500);
   }
@@ -1036,9 +1046,9 @@ function BuyScreen() {
     } catch (e) {
       const detail =
         e instanceof ApiError
-          ? ((e.body as { detail?: string } | null)?.detail ?? `Server error ${e.status}`)
+          ? ((e.body as { detail?: string } | null)?.detail ?? t("common.serverError", { status: e.status }))
           : e instanceof Error ? e.message : String(e);
-      setErrMsg(typeof detail === "string" ? detail : "Could not start checkout");
+      setErrMsg(typeof detail === "string" ? detail : t("buy.couldNotStart"));
       setPhase("error");
     }
   }
@@ -1046,16 +1056,16 @@ function BuyScreen() {
   return (
     <Shell>
       <Header account={account} />
-      <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>Buy XRP</h2>
+      <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("buy.title")}</h2>
       <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 24px", lineHeight: 1.5 }}>
-        Buy with a card or Apple Pay, delivered to any pay:name. Handled by MoonPay — DNS://Money never touches your funds.
+        {t("buy.intro")}
       </p>
 
-      <Label>Deliver to alias</Label>
+      <Label>{t("buy.deliverToAlias")}</Label>
       <input
         value={alias}
         onChange={(e) => onAliasChange(e.target.value)}
-        placeholder="pay:name"
+        placeholder={t("send.aliasPlaceholder")}
         style={inputStyle}
         autoCapitalize="none"
         autoCorrect="off"
@@ -1065,8 +1075,8 @@ function BuyScreen() {
 
       {resolved && (
         <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "0.88em" }}>
-          <Row label="To" value={resolved.alias} />
-          <Row label="Address" value={resolved.wallet_address} mono />
+          <Row label={t("buy.rowTo")} value={resolved.alias} />
+          <Row label={t("buy.rowAddress")} value={resolved.wallet_address} mono />
         </div>
       )}
       {resolveErr && (
@@ -1075,7 +1085,7 @@ function BuyScreen() {
 
       {phase === "opened" ? (
         <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "0.88em", margin: "24px 0 0", textAlign: "center" }}>
-          Checkout opened in your browser. Finish there — XRP arrives at {resolved?.alias} when MoonPay settles.
+          {t("buy.checkoutOpened", { alias: resolved?.alias ?? "" })}
         </p>
       ) : (
         <>
@@ -1088,7 +1098,7 @@ function BuyScreen() {
             active={!!resolved && phase !== "preparing"}
             style={{ marginTop: 24 }}
           >
-            {phase === "preparing" ? "Preparing checkout…" : "Buy XRP"}
+            {phase === "preparing" ? t("buy.preparingCheckout") : t("buy.buyXrp")}
           </Btn>
         </>
       )}
@@ -1100,10 +1110,43 @@ function Header({ account }: { account: string }) {
   return (
     <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
       <span style={{ fontWeight: 700, fontSize: "1.05em", letterSpacing: "-0.01em" }}>DNS://Money</span>
-      <span style={{ fontSize: "0.72em", background: "var(--xapp-surface-muted)", borderRadius: 20, padding: "3px 10px", opacity: 0.75, fontFamily: "monospace" }}>
-        {shortAddr(account)}
-      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <LangSwitcher />
+        <span style={{ fontSize: "0.72em", background: "var(--xapp-surface-muted)", borderRadius: 20, padding: "3px 10px", opacity: 0.75, fontFamily: "monospace" }}>
+          {shortAddr(account)}
+        </span>
+      </div>
     </header>
+  );
+}
+
+function LangSwitcher() {
+  const { locale, setLocale } = useI18n();
+  return (
+    <div style={{ display: "flex", gap: 2 }}>
+      {SUPPORTED.map((loc) => {
+        const active = loc === locale;
+        return (
+          <button
+            key={loc}
+            onClick={() => setLocale(loc)}
+            aria-pressed={active}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              padding: "2px 4px",
+              fontSize: "0.7em",
+              fontWeight: active ? 700 : 400,
+              color: active ? "var(--xapp-accent)" : "var(--xapp-text)",
+              opacity: active ? 1 : 0.5,
+            }}
+          >
+            {LOCALE_LABELS[loc]}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1124,7 +1167,8 @@ function CenteredMsg({ children }: { children: React.ReactNode }) {
 }
 
 function Spinner() {
-  return <CenteredMsg><span style={{ opacity: 0.4, fontSize: "0.9em" }}>Loading…</span></CenteredMsg>;
+  const t = useT();
+  return <CenteredMsg><span style={{ opacity: 0.4, fontSize: "0.9em" }}>{t("common.loading")}</span></CenteredMsg>;
 }
 
 function Label({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {

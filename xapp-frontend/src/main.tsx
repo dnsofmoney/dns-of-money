@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { XamanProvider } from "./xaman/XamanProvider";
+import { I18nProvider } from "./i18n";
 import App from "./App";
 import "./index.css";
 
@@ -12,7 +13,9 @@ if (!rootEl) {
 createRoot(rootEl).render(
   <StrictMode>
     <XamanProvider>
-      <App />
+      <I18nProvider>
+        <App />
+      </I18nProvider>
     </XamanProvider>
   </StrictMode>,
 );
