@@ -781,7 +781,7 @@ function Header({ account }: { account: string }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main style={{ maxWidth: 420, margin: "0 auto", padding: "16px 16px 48px", minHeight: "100vh", background: "var(--xapp-bg)", color: "var(--xapp-text)", boxSizing: "border-box" }}>
+    <main style={{ position: "relative", zIndex: 1, maxWidth: 420, margin: "0 auto", padding: "16px 16px 48px", minHeight: "100vh", background: "transparent", color: "var(--xapp-text)", boxSizing: "border-box" }}>
       {children}
     </main>
   );
@@ -789,7 +789,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function CenteredMsg({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", padding: 24, background: "var(--xapp-bg)", color: "var(--xapp-text)", textAlign: "center" }}>
+    <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", padding: 24, background: "transparent", color: "var(--xapp-text)", textAlign: "center" }}>
       {children}
     </div>
   );
