@@ -3,7 +3,7 @@ import { useXaman } from "./xaman/useXaman";
 import { ApiError, useApiClient } from "./api/client";
 import { openSignRequest } from "./xaman/sdk";
 
-type Screen = "register" | "send";
+type Screen = "register" | "send" | "gallery";
 
 export default function App() {
   const { session, loading, error } = useXaman();
@@ -23,7 +23,7 @@ export default function App() {
   return (
     <>
       <div style={{ paddingBottom: 64 }}>
-        {screen === "register" ? <RegisterScreen /> : <SendScreen />}
+        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen /> : <GalleryScreen />}
       </div>
       <TabBar screen={screen} onSwitch={setScreen} />
     </>
@@ -46,7 +46,7 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
         zIndex: 100,
       }}
     >
-      {(["register", "send"] as Screen[]).map((s) => (
+      {(["register", "send", "gallery"] as Screen[]).map((s) => (
         <button
           key={s}
           onClick={() => onSwitch(s)}
@@ -63,7 +63,7 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
             transition: "color 0.15s, opacity 0.15s",
           }}
         >
-          {s === "register" ? "Get Alias" : "Send"}
+          {s === "register" ? "Get Alias" : s === "send" ? "Send" : "Gallery"}
         </button>
       ))}
     </nav>
@@ -710,6 +710,7 @@ type SendPhase = "idle" | "loading" | "signing" | "done" | "error";
 function SendScreen() {
   const { session } = useXaman();
   const { request } = useApiClient();
+  const apiBase = import.meta.env.VITE_API_BASE_URL as string;
 
   const [alias, setAlias] = useState("pay:");
   const [preview, setPreview] = useState<PreviewData | null>(null);
@@ -847,6 +848,12 @@ function SendScreen() {
 
       {preview && (
         <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "0.88em" }}>
+          <img
+            src={`${apiBase}/identity/preview/${preview.alias}`}
+            alt={`${preview.alias} identity`}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", display: "block", margin: "2px auto 12px", border: "1px solid var(--xapp-border)" }}
+          />
           <Row label="To" value={preview.display_name ?? preview.alias} />
           <Row label="Address" value={preview.destination_address ?? "—"} mono />
           {preview.fee_estimate && <Row label="Fee" value={preview.fee_estimate} />}
@@ -895,6 +902,66 @@ function SendScreen() {
 }
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
+
+// ── Gallery screen ────────────────────────────────────────────────────────────
+
+interface GalleryItem {
+  alias_name: string;
+  nft_token_id: string | null;
+  image_uri: string | null;
+  created_at: string | null;
+}
+
+function GalleryScreen() {
+  const { session } = useXaman();
+  const { request } = useApiClient();
+  const apiBase = import.meta.env.VITE_API_BASE_URL as string;
+  const account = session!.context.account;
+
+  const [items, setItems] = useState<GalleryItem[] | null>(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    request<{ success: boolean; data: GalleryItem[] }>("/api/v1/founding/gallery", { method: "GET" })
+      .then((r) => setItems(r.data ?? []))
+      .catch(() => setErr("Could not load the gallery — try again shortly."));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <Shell>
+      <Header account={account} />
+      <h2 style={{ margin: "0 0 4px", fontSize: "1.2em" }}>Founding identities</h2>
+      <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 20px" }}>
+        {items ? `${items.length} minted on the XRP Ledger` : "Loading…"}
+      </p>
+
+      {err && <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em" }}>{err}</p>}
+
+      {items && items.length === 0 && !err && (
+        <p style={{ opacity: 0.5, fontSize: "0.85em" }}>No identities minted yet.</p>
+      )}
+
+      {items && items.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          {items.map((it) => (
+            <div key={it.alias_name} style={{ textAlign: "center" }}>
+              <img
+                src={`${apiBase}/identity/preview/${it.alias_name}`}
+                alt={`${it.alias_name} identity`}
+                loading="lazy"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                style={{ width: "100%", aspectRatio: "1", borderRadius: 10, objectFit: "cover", border: "1px solid var(--xapp-border)", background: "var(--xapp-surface)" }}
+              />
+              <div style={{ fontSize: "0.62em", marginTop: 4, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {it.alias_name}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Shell>
+  );
+}
 
 function Header({ account }: { account: string }) {
   return (
