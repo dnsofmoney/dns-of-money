@@ -1,9 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { useXaman } from "./xaman/useXaman";
 import { ApiError, useApiClient } from "./api/client";
-import { openSignRequest } from "./xaman/sdk";
+import { openBrowser, openSignRequest } from "./xaman/sdk";
 
-type Screen = "register" | "send" | "gallery";
+type Screen = "register" | "send" | "gallery" | "buy";
+
+const TAB_LABELS: Record<Screen, string> = {
+  register: "Get Alias",
+  send: "Send",
+  gallery: "Gallery",
+  buy: "Buy",
+};
 
 export default function App() {
   const { session, loading, error } = useXaman();
@@ -23,7 +30,7 @@ export default function App() {
   return (
     <>
       <div style={{ paddingBottom: 64 }}>
-        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen /> : <GalleryScreen />}
+        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen /> : screen === "gallery" ? <GalleryScreen /> : <BuyScreen />}
       </div>
       <TabBar screen={screen} onSwitch={setScreen} />
     </>
@@ -46,7 +53,7 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
         zIndex: 100,
       }}
     >
-      {(["register", "send", "gallery"] as Screen[]).map((s) => (
+      {(["register", "send", "gallery", "buy"] as Screen[]).map((s) => (
         <button
           key={s}
           onClick={() => onSwitch(s)}
@@ -63,7 +70,7 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
             transition: "color 0.15s, opacity 0.15s",
           }}
         >
-          {s === "register" ? "Get Alias" : s === "send" ? "Send" : "Gallery"}
+          {TAB_LABELS[s]}
         </button>
       ))}
     </nav>
@@ -958,6 +965,132 @@ function GalleryScreen() {
             </div>
           ))}
         </div>
+      )}
+    </Shell>
+  );
+}
+
+// ── Buy screen (fiat → XRP on-ramp, MoonPay) ──────────────────────────────────
+
+interface OnrampAddress {
+  alias: string;
+  currency: string;
+  wallet_address: string;
+}
+
+type BuyPhase = "idle" | "preparing" | "opened" | "error";
+
+function BuyScreen() {
+  const { session } = useXaman();
+  const { request } = useApiClient();
+  const account = session!.context.account;
+
+  const [alias, setAlias] = useState("pay:");
+  const [resolved, setResolved] = useState<OnrampAddress | null>(null);
+  const [resolveErr, setResolveErr] = useState("");
+  const [phase, setPhase] = useState<BuyPhase>("idle");
+  const [errMsg, setErrMsg] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onAliasChange(value: string) {
+    setAlias(value);
+    setResolved(null);
+    setResolveErr("");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const stripped = value.replace(/^pay:/i, "").trim().toLowerCase();
+    if (stripped.length < 1) return;
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const data = await request<OnrampAddress>(
+          `/api/v1/onramp/address/pay:${encodeURIComponent(stripped)}`,
+          { method: "GET" },
+        );
+        setResolved(data);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) setResolveErr("Alias not found");
+        else if (e instanceof ApiError && e.status === 422) setResolveErr("Alias has no XRPL address");
+        else if (e instanceof ApiError && e.status === 503) setResolveErr("Buy isn't available right now");
+        else setResolveErr("Could not resolve alias");
+      }
+    }, 500);
+  }
+
+  async function buy() {
+    if (!resolved?.wallet_address || phase === "preparing") return;
+    setPhase("preparing");
+    setErrMsg("");
+    try {
+      const data = await request<{ url: string }>("/api/v1/onramp/sign", {
+        method: "POST",
+        body: JSON.stringify({
+          params: {
+            currencyCode: "xrp",
+            walletAddress: resolved.wallet_address,
+            baseCurrencyCode: "usd",
+          },
+        }),
+      });
+      if (!data?.url) throw new Error("No checkout URL returned");
+      openBrowser(data.url);
+      setPhase("opened");
+    } catch (e) {
+      const detail =
+        e instanceof ApiError
+          ? ((e.body as { detail?: string } | null)?.detail ?? `Server error ${e.status}`)
+          : e instanceof Error ? e.message : String(e);
+      setErrMsg(typeof detail === "string" ? detail : "Could not start checkout");
+      setPhase("error");
+    }
+  }
+
+  return (
+    <Shell>
+      <Header account={account} />
+      <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>Buy XRP</h2>
+      <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 24px", lineHeight: 1.5 }}>
+        Buy with a card or Apple Pay, delivered to any pay:name. Handled by MoonPay — DNS://Money never touches your funds.
+      </p>
+
+      <Label>Deliver to alias</Label>
+      <input
+        value={alias}
+        onChange={(e) => onAliasChange(e.target.value)}
+        placeholder="pay:name"
+        style={inputStyle}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        inputMode="text"
+      />
+
+      {resolved && (
+        <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "0.88em" }}>
+          <Row label="To" value={resolved.alias} />
+          <Row label="Address" value={resolved.wallet_address} mono />
+        </div>
+      )}
+      {resolveErr && (
+        <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "6px 0 0" }}>{resolveErr}</p>
+      )}
+
+      {phase === "opened" ? (
+        <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "0.88em", margin: "24px 0 0", textAlign: "center" }}>
+          Checkout opened in your browser. Finish there — XRP arrives at {resolved?.alias} when MoonPay settles.
+        </p>
+      ) : (
+        <>
+          {phase === "error" && (
+            <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "14px 0 0" }}>{errMsg}</p>
+          )}
+          <Btn
+            onClick={buy}
+            disabled={!resolved || phase === "preparing"}
+            active={!!resolved && phase !== "preparing"}
+            style={{ marginTop: 24 }}
+          >
+            {phase === "preparing" ? "Preparing checkout…" : "Buy XRP"}
+          </Btn>
+        </>
       )}
     </Shell>
   );
