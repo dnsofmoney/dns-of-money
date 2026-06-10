@@ -146,6 +146,25 @@ interface CreateMintData {
   price_drops: number;
 }
 
+type ClaimPhase = "idle" | "claiming" | "claimed" | "error";
+
+// Identity pipeline status → user-facing label. Mirrors the /mint page state
+// machine (app/templates/mint.html). Terminal states: "complete" (offer ready
+// to claim) and the *_failed states (auto-retried server-side).
+const MINT_STATUS_LABEL: Record<string, string> = {
+  pending: "Preparing…",
+  registered: "Preparing…",
+  rendering: "Rendering your identity…",
+  genome_stored: "Uploading to IPFS…",
+  uploading: "Uploading to IPFS…",
+  minting: "Minting on the XRP Ledger…",
+  complete: "Identity minted",
+};
+
+function ipfsToUrl(uri: string, base: string): string {
+  return uri.startsWith("ipfs://") ? `${base}/ipfs/${uri.slice(7)}` : uri;
+}
+
 function RegisterScreen() {
   const { session } = useXaman();
   const { request } = useApiClient();
@@ -161,6 +180,11 @@ function RegisterScreen() {
   const [errMsg, setErrMsg] = useState("");
   const [walletChecking, setWalletChecking] = useState(true);
   const [existingAlias, setExistingAlias] = useState<string | null>(null);
+  const [mintStatus, setMintStatus] = useState("registered");
+  const [nftImageUri, setNftImageUri] = useState<string | null>(null);
+  const [nftReady, setNftReady] = useState(false);
+  const [claimPhase, setClaimPhase] = useState<ClaimPhase>("idle");
+  const [claimErr, setClaimErr] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const account = session!.context.account;
@@ -183,6 +207,39 @@ function RegisterScreen() {
       .catch(() => {})
       .finally(() => setWalletChecking(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll the identity pipeline once minted, until the NFT offer is ready to
+  // claim (or a terminal state). Stops on "complete" / *_failed.
+  useEffect(() => {
+    if (phase !== "done" || !mintedAlias) return;
+    if (mintStatus === "complete" || mintStatus.endsWith("_failed")) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await fetch(
+          `${apiBase}/api/v1/founding/identity-status/${encodeURIComponent(mintedAlias)}`,
+        );
+        const j = await r.json();
+        const d = (j.data ?? j) as {
+          identity_status?: string;
+          image_uri?: string | null;
+          nft_offer_id?: string | null;
+        };
+        if (cancelled) return;
+        if (d.identity_status) setMintStatus(d.identity_status);
+        if (d.image_uri) setNftImageUri(ipfsToUrl(d.image_uri, apiBase));
+        if (d.nft_offer_id) setNftReady(true);
+      } catch {
+        /* transient — keep polling */
+      }
+    };
+    const id = setInterval(tick, 5000);
+    tick();
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [phase, mintedAlias, mintStatus, apiBase]);
 
   function onNameChange(value: string) {
     const stripped = value.replace(/^pay:/i, "").toLowerCase();
@@ -290,12 +347,42 @@ function RegisterScreen() {
     }
   }
 
+  async function claimNft() {
+    if (claimPhase === "claiming") return;
+    setClaimPhase("claiming");
+    setClaimErr("");
+    try {
+      const resp = await request<{ success: boolean; data: { uuid: string } }>(
+        "/api/v1/founding/claim-nft",
+        { method: "POST", body: JSON.stringify({ alias_name: mintedAlias }) },
+      );
+      if (!resp.data?.uuid) throw new Error("No claim payload returned");
+      const r = await openSignRequest(resp.data.uuid);
+      if (r.signed) {
+        setClaimPhase("claimed");
+      } else {
+        setClaimErr(r.reason ?? "Rejected in Xaman");
+        setClaimPhase("error");
+      }
+    } catch (e) {
+      setClaimErr(
+        e instanceof ApiError ? `Server error ${e.status}` : e instanceof Error ? e.message : String(e),
+      );
+      setClaimPhase("error");
+    }
+  }
+
   function reset() {
     setPhase("idle");
     setErrMsg("");
     setName("");
     setAvail("idle");
     setMintedAlias("");
+    setMintStatus("registered");
+    setNftImageUri(null);
+    setNftReady(false);
+    setClaimPhase("idle");
+    setClaimErr("");
     setStep(1);
   }
 
@@ -378,9 +465,50 @@ function RegisterScreen() {
           >
             {mintedAlias}
           </code>
-          <p style={{ opacity: 0.4, fontSize: "0.78em", margin: "0 0 32px", padding: "0 24px" }}>
-            Identity NFT is being minted — check back in a few minutes.
-          </p>
+          {nftImageUri && (
+            <img
+              src={nftImageUri}
+              alt={`${mintedAlias} identity`}
+              style={{
+                width: 140,
+                height: 140,
+                borderRadius: 16,
+                objectFit: "cover",
+                display: "block",
+                margin: "4px auto 20px",
+                border: "1px solid var(--xapp-border)",
+              }}
+            />
+          )}
+
+          {claimPhase === "claimed" ? (
+            <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "0.9em", margin: "0 0 28px", padding: "0 24px" }}>
+              NFT claimed — it's in your Xaman wallet.
+            </p>
+          ) : nftReady ? (
+            <div style={{ margin: "0 0 28px" }}>
+              <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 14px", padding: "0 24px", lineHeight: 1.5 }}>
+                Your identity NFT is minted. Claim it to your wallet — no payment, just a signature.
+              </p>
+              <Btn onClick={claimNft} active disabled={claimPhase === "claiming"}>
+                {claimPhase === "claiming" ? "Opening Xaman…" : "Claim NFT to wallet"}
+              </Btn>
+              {claimPhase === "error" && (
+                <p style={{ color: "var(--xapp-danger)", fontSize: "0.82em", margin: "10px 0 0" }}>{claimErr}</p>
+              )}
+            </div>
+          ) : mintStatus.endsWith("_failed") ? (
+            <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
+              Minting hit a snag and is retrying automatically. Your alias is safe — check back shortly.
+            </p>
+          ) : (
+            <p style={{ opacity: 0.55, fontSize: "0.82em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
+              {MINT_STATUS_LABEL[mintStatus] ?? "Working…"}
+              <br />
+              <span style={{ opacity: 0.6 }}>This usually takes a minute or two.</span>
+            </p>
+          )}
+
           <Btn onClick={reset} active>Register another</Btn>
         </div>
       </Shell>
