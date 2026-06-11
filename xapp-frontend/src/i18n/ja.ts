@@ -60,7 +60,7 @@ export const ja: Messages = {
     openingXaman: "Xamanを開いています…",
     claimNft: "NFTをウォレットに受け取る",
     mintRetrying:
-      "ミント中に問題が発生し、自動的に再試行しています。エイリアスは安全です — しばらくしてからご確認ください。",
+      "ミント中に問題が発生しました。エイリアスは安全に予約されています — 担当チームに通知され、まもなくミントを完了します。",
     mintTakesAMinute: "通常1〜2分かかります。",
     registerAnother: "別のエイリアスを登録",
 
