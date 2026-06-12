@@ -62,7 +62,7 @@ export const en = {
     openingXaman: "Opening Xaman…",
     claimNft: "Claim NFT to wallet",
     mintRetrying:
-      "Minting hit a snag and is retrying automatically. Your alias is safe — check back shortly.",
+      "Minting hit a snag. Your alias is safe and reserved — our team has been notified and will finish the mint shortly.",
     mintTakesAMinute: "This usually takes a minute or two.",
     registerAnother: "Register another",
 
