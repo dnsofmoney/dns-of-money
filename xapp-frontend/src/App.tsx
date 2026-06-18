@@ -112,9 +112,10 @@ function StepBar({ current }: { current: 1 | 2 | 3 }) {
                 </div>
                 <span
                   style={{
-                    fontSize: "0.65em",
+                    fontSize: "0.75em",
                     marginTop: 4,
-                    opacity: active ? 0.9 : 0.35,
+                    color: active ? undefined : "var(--xapp-text-muted)",
+                    opacity: active ? 0.9 : 0.85,
                     fontWeight: active ? 600 : 400,
                     whiteSpace: "nowrap",
                   }}
@@ -437,7 +438,7 @@ function RegisterScreen() {
           >
             {existingAlias}
           </code>
-          <p style={{ opacity: 0.45, fontSize: "0.82em", margin: 0, padding: "0 24px", lineHeight: 1.5 }}>
+          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.82em", margin: 0, padding: "0 24px", lineHeight: 1.5 }}>
             {t("register.oneAliasPerWallet")}
           </p>
         </div>
@@ -467,7 +468,7 @@ function RegisterScreen() {
             ✓
           </div>
           <h2 style={{ margin: "0 0 6px", fontSize: "1.4em" }}>{t("register.doneTitle")}</h2>
-          <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 20px" }}>{t("register.doneSubtitle")}</p>
+          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 20px" }}>{t("register.doneSubtitle")}</p>
           <code
             style={{
               display: "block",
@@ -501,7 +502,7 @@ function RegisterScreen() {
             </p>
           ) : nftReady ? (
             <div style={{ margin: "0 0 28px" }}>
-              <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 14px", padding: "0 24px", lineHeight: 1.5 }}>
+              <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.8em", margin: "0 0 14px", padding: "0 24px", lineHeight: 1.5 }}>
                 {t("register.nftReadyHint")}
               </p>
               <Btn onClick={claimNft} active disabled={claimPhase === "claiming"}>
@@ -512,7 +513,7 @@ function RegisterScreen() {
               )}
             </div>
           ) : mintStatus.endsWith("_failed") ? (
-            <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
+            <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.8em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
               {t("register.mintRetrying")}
             </p>
           ) : (
@@ -538,7 +539,7 @@ function RegisterScreen() {
         <StepBar current={1} />
 
         <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("register.step1Title")}</h2>
-        <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 24px" }}>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 24px" }}>
           {t("register.step1Subtitle")}
         </p>
 
@@ -607,7 +608,7 @@ function RegisterScreen() {
         <StepBar current={2} />
 
         <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("register.step2Title")}</h2>
-        <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 24px" }}>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 24px" }}>
           {t("register.step2Subtitle")}
         </p>
 
@@ -688,12 +689,12 @@ function RegisterScreen() {
           ✍
         </div>
         <h2 style={{ margin: "0 0 8px", fontSize: "1.2em" }}>{t("register.step3Title")}</h2>
-        <p style={{ opacity: 0.5, fontSize: "0.88em", margin: "0 0 8px", padding: "0 24px" }}>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.88em", margin: "0 0 8px", padding: "0 24px" }}>
           {phase === "registering"
             ? t("register.registeringAlias")
             : t("register.approveInXaman")}
         </p>
-        <p style={{ opacity: 0.35, fontSize: "0.78em", margin: 0 }}>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.78em", margin: 0 }}>
           {phase === "registering" ? t("register.almostDone") : t("common.waitingSignature")}
         </p>
       </div>
@@ -835,8 +836,8 @@ function SendScreen() {
             ✓
           </div>
           <h2 style={{ margin: "0 0 6px", fontSize: "1.3em" }}>{t("send.sentTitle")}</h2>
-          <p style={{ opacity: 0.5, fontSize: "0.8em", margin: "0 0 4px" }}>{t("send.transactionId")}</p>
-          <code style={{ fontSize: "0.72em", wordBreak: "break-all", display: "block", padding: "0 16px", opacity: 0.7 }}>
+          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.8em", margin: "0 0 4px" }}>{t("send.transactionId")}</p>
+          <code style={{ fontSize: "0.75em", wordBreak: "break-all", display: "block", padding: "0 16px", opacity: 0.7 }}>
             {txid}
           </code>
           <Btn onClick={reset} active style={{ marginTop: 32 }}>{t("send.sendAgain")}</Btn>
@@ -947,14 +948,14 @@ function GalleryScreen() {
     <Shell>
       <Header account={account} />
       <h2 style={{ margin: "0 0 4px", fontSize: "1.2em" }}>{t("gallery.title")}</h2>
-      <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 20px" }}>
+      <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 20px" }}>
         {items ? t("gallery.countMinted", { count: items.length }) : t("common.loading")}
       </p>
 
       {err && <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em" }}>{err}</p>}
 
       {items && items.length === 0 && !err && (
-        <p style={{ opacity: 0.5, fontSize: "0.85em" }}>{t("gallery.empty")}</p>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em" }}>{t("gallery.empty")}</p>
       )}
 
       {items && items.length > 0 && (
@@ -968,7 +969,7 @@ function GalleryScreen() {
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                 style={{ width: "100%", aspectRatio: "1", borderRadius: 10, objectFit: "cover", border: "1px solid var(--xapp-border)", background: "var(--xapp-surface)" }}
               />
-              <div style={{ fontSize: "0.62em", marginTop: 4, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: "0.75em", marginTop: 4, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {it.alias_name}
               </div>
             </div>
@@ -1057,7 +1058,7 @@ function BuyScreen() {
     <Shell>
       <Header account={account} />
       <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("buy.title")}</h2>
-      <p style={{ opacity: 0.5, fontSize: "0.85em", margin: "0 0 24px", lineHeight: 1.5 }}>
+      <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 24px", lineHeight: 1.5 }}>
         {t("buy.intro")}
       </p>
 
@@ -1112,7 +1113,7 @@ function Header({ account }: { account: string }) {
       <span style={{ fontWeight: 700, fontSize: "1.05em", letterSpacing: "-0.01em" }}>DNS://Money</span>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <LangSwitcher />
-        <span style={{ fontSize: "0.72em", background: "var(--xapp-surface-muted)", borderRadius: 20, padding: "3px 10px", opacity: 0.75, fontFamily: "monospace" }}>
+        <span style={{ fontSize: "0.75em", background: "var(--xapp-surface-muted)", borderRadius: 20, padding: "3px 10px", opacity: 0.75, fontFamily: "monospace" }}>
           {shortAddr(account)}
         </span>
       </div>
@@ -1135,8 +1136,10 @@ function LangSwitcher() {
               border: "none",
               background: "none",
               cursor: "pointer",
-              padding: "2px 4px",
-              fontSize: "0.7em",
+              minWidth: 40,
+              minHeight: 40,
+              padding: "4px 6px",
+              fontSize: "0.78em",
               fontWeight: active ? 700 : 400,
               color: active ? "var(--xapp-accent)" : "var(--xapp-text)",
               opacity: active ? 1 : 0.5,
@@ -1168,12 +1171,12 @@ function CenteredMsg({ children }: { children: React.ReactNode }) {
 
 function Spinner() {
   const t = useT();
-  return <CenteredMsg><span style={{ opacity: 0.4, fontSize: "0.9em" }}>{t("common.loading")}</span></CenteredMsg>;
+  return <CenteredMsg><span style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.9em" }}>{t("common.loading")}</span></CenteredMsg>;
 }
 
 function Label({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <p style={{ fontSize: "0.75em", fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px 0", ...style }}>
+    <p style={{ fontSize: "0.75em", fontWeight: 600, color: "var(--xapp-text-muted)", opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px 0", ...style }}>
       {children}
     </p>
   );
@@ -1182,7 +1185,7 @@ function Label({ children, style }: { children: React.ReactNode; style?: React.C
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "3px 0", gap: 8 }}>
-      <span style={{ opacity: 0.5, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: "var(--xapp-text-muted)", opacity: 0.85, flexShrink: 0 }}>{label}</span>
       <span style={{ fontFamily: mono ? "monospace" : undefined, fontSize: mono ? "0.9em" : undefined, textAlign: "right", wordBreak: "break-all" }}>
         {value}
       </span>
