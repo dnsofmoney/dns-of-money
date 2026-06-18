@@ -21,7 +21,7 @@ export const en = {
     register: "Get Alias",
     send: "Send",
     gallery: "Gallery",
-    buy: "Buy",
+    buy: "Fund",
   },
 
   steps: {
@@ -116,18 +116,18 @@ export const en = {
   },
 
   buy: {
-    title: "Buy XRP",
+    title: "Add XRP",
     intro:
-      "Buy with a card or Apple Pay, delivered to any pay:name. Handled by MoonPay — DNS://Money never touches your funds.",
+      "Fund a pay:name with a card or Apple Pay. Handled by MoonPay — DNS://Money never touches your funds.",
     deliverToAlias: "Deliver to alias",
     rowTo: "To",
     rowAddress: "Address",
     aliasNotFound: "Alias not found",
     noXrplAddress: "Alias has no XRPL address",
-    notAvailable: "Buy isn't available right now",
+    notAvailable: "Funding isn't available right now",
     couldNotResolve: "Could not resolve alias",
     preparingCheckout: "Preparing checkout…",
-    buyXrp: "Buy XRP",
+    buyXrp: "Continue to MoonPay",
     checkoutOpened:
       "Checkout opened in your browser. Finish there — XRP arrives at {alias} when MoonPay settles.",
     couldNotStart: "Could not start checkout",
