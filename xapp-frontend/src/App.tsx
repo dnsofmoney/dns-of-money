@@ -939,8 +939,11 @@ function GalleryScreen() {
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    request<{ success: boolean; data: GalleryItem[] }>("/api/v1/founding/gallery", { method: "GET" })
-      .then((r) => setItems(r.data ?? []))
+    request<{ success: boolean; data: { count: number; cap: number; aliases: GalleryItem[] } }>(
+      "/api/v1/founding/gallery",
+      { method: "GET" },
+    )
+      .then((r) => setItems(r.data?.aliases ?? []))
       .catch(() => setErr(t("gallery.loadError")));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
