@@ -962,16 +962,20 @@ function GalleryScreen() {
       )}
 
       {items && items.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
           {items.map((it) => (
-            <div key={it.alias_name} style={{ textAlign: "center" }}>
-              <img
-                src={`${apiBase}/identity/preview/${it.alias_name}`}
-                alt={`${it.alias_name} identity`}
-                loading="lazy"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
-                style={{ width: "100%", aspectRatio: "1", borderRadius: 10, objectFit: "cover", border: "1px solid var(--xapp-border)", background: "var(--xapp-surface)" }}
-              />
+            <div key={it.alias_name} style={{ textAlign: "center", minWidth: 0 }}>
+              {/* padding-top:100% forces a perfect square in every WebView —
+                  aspect-ratio CSS is unreliable in Xaman's in-app browser. */}
+              <div style={{ position: "relative", width: "100%", paddingTop: "100%", borderRadius: 10, overflow: "hidden", border: "1px solid var(--xapp-border)", background: "var(--xapp-surface)" }}>
+                <img
+                  src={`${apiBase}/identity/preview/${it.alias_name}`}
+                  alt={`${it.alias_name} identity`}
+                  loading="lazy"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
               <div style={{ fontSize: "0.75em", marginTop: 4, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {it.alias_name}
               </div>
