@@ -112,7 +112,11 @@ export const ja: Messages = {
     empty: "まだミントされたアイデンティティはありません。",
     viewIdentity: "{alias} を全画面で表示",
     openImage: "画像を開く",
+    send: "送金",
     close: "閉じる",
+    prev: "前へ",
+    next: "次へ",
+    position: "{total}件中{index}件目",
   },
 
   buy: {
