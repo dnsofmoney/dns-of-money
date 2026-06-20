@@ -946,6 +946,15 @@ interface GalleryItem {
   created_at: string | null;
 }
 
+// ipfs://<cid>[/path] (or ipfs://ipfs/<cid>) → a public HTTPS gateway URL.
+// Used only for the "Open image" hand-off, where we want the canonical
+// full-resolution NFT art at a permanent URL rather than the downscaled
+// on-demand render. ipfs.io served these CIDs with a direct 200 in testing.
+function ipfsToHttp(uri: string): string {
+  const path = uri.replace(/^ipfs:\/\//, "").replace(/^ipfs\//, "");
+  return `https://ipfs.io/ipfs/${path}`;
+}
+
 function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
   const { session } = useXaman();
   const { request } = useApiClient();
@@ -1088,7 +1097,7 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
             <Btn active onClick={() => onSend(sel.alias_name)} style={{ flex: 1 }}>
               {t("gallery.send")}
             </Btn>
-            <Btn onClick={() => openBrowser(previewUrl(sel.alias_name))} style={{ flex: 1 }}>
+            <Btn onClick={() => openBrowser(sel.image_uri ? ipfsToHttp(sel.image_uri) : previewUrl(sel.alias_name))} style={{ flex: 1 }}>
               {t("gallery.openImage")}
             </Btn>
           </div>
