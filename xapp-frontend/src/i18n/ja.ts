@@ -111,12 +111,14 @@ export const ja: Messages = {
     loadError: "ギャラリーを読み込めませんでした — しばらくして再度お試しください。",
     empty: "まだミントされたアイデンティティはありません。",
     viewIdentity: "{alias} を全画面で表示",
-    openImage: "画像を開く",
+    openImage: "フル画像を表示",
     send: "送金",
     close: "閉じる",
     prev: "前へ",
     next: "次へ",
     position: "{total}件中{index}件目",
+    copyTokenId: "トークンIDをコピー",
+    tokenIdCopied: "トークンIDをコピーしました ✓",
   },
 
   buy: {

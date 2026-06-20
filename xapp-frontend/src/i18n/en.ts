@@ -114,12 +114,14 @@ export const en = {
     loadError: "Could not load the gallery — try again shortly.",
     empty: "No identities minted yet.",
     viewIdentity: "View {alias} full size",
-    openImage: "Open image",
+    openImage: "View Full Image",
     send: "Send",
     close: "Close",
     prev: "Previous",
     next: "Next",
     position: "{index} of {total}",
+    copyTokenId: "Copy token ID",
+    tokenIdCopied: "Token ID copied ✓",
   },
 
   buy: {
