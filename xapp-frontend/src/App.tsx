@@ -937,6 +937,7 @@ function GalleryScreen() {
 
   const [items, setItems] = useState<GalleryItem[] | null>(null);
   const [err, setErr] = useState("");
+  const [selected, setSelected] = useState<GalleryItem | null>(null);
 
   useEffect(() => {
     request<{ success: boolean; data: { count: number; cap: number; aliases: GalleryItem[] } }>(
@@ -946,6 +947,14 @@ function GalleryScreen() {
       .then((r) => setItems(r.data?.aliases ?? []))
       .catch(() => setErr(t("gallery.loadError")));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close the lightbox on Escape (desktop / keyboard users).
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelected(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
 
   return (
     <Shell>
@@ -967,7 +976,12 @@ function GalleryScreen() {
             <div key={it.alias_name} style={{ textAlign: "center", minWidth: 0 }}>
               {/* padding-top:100% forces a perfect square in every WebView —
                   aspect-ratio CSS is unreliable in Xaman's in-app browser. */}
-              <div style={{ position: "relative", width: "100%", paddingTop: "100%", borderRadius: 10, overflow: "hidden", border: "1px solid var(--xapp-border)", background: "var(--xapp-surface)" }}>
+              <button
+                type="button"
+                onClick={() => setSelected(it)}
+                aria-label={t("gallery.viewIdentity", { alias: it.alias_name })}
+                style={{ position: "relative", display: "block", width: "100%", padding: 0, paddingTop: "100%", borderRadius: 10, overflow: "hidden", border: "1px solid var(--xapp-border)", background: "var(--xapp-surface)", cursor: "pointer" }}
+              >
                 <img
                   src={`${apiBase}/identity/preview/${it.alias_name}`}
                   alt={`${it.alias_name} identity`}
@@ -975,12 +989,48 @@ function GalleryScreen() {
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                   style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
                 />
-              </div>
+              </button>
               <div style={{ fontSize: "0.75em", marginTop: 4, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {it.alias_name}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {selected && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={selected.alias_name}
+          onClick={() => setSelected(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 200,
+            background: "rgba(0, 0, 0, 0.82)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            padding: 24, boxSizing: "border-box",
+          }}
+        >
+          <img
+            src={`${apiBase}/identity/preview/${selected.alias_name}`}
+            alt={`${selected.alias_name} identity`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "100%", maxHeight: "68vh", borderRadius: 12, border: "1px solid var(--xapp-border)", objectFit: "contain" }}
+          />
+          <div style={{ color: "#fff", fontSize: "1.05em", fontWeight: 600, marginTop: 16 }}>{selected.alias_name}</div>
+          {selected.nft_token_id && (
+            <div style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: "0.72em", fontFamily: "monospace", marginTop: 4 }}>
+              {shortAddr(selected.nft_token_id)}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10, marginTop: 22, width: "100%", maxWidth: 320 }} onClick={(e) => e.stopPropagation()}>
+            <Btn active onClick={() => openBrowser(`${apiBase}/identity/preview/${selected.alias_name}`)} style={{ flex: 1 }}>
+              {t("gallery.openImage")}
+            </Btn>
+            <Btn onClick={() => setSelected(null)} style={{ flex: 1 }}>
+              {t("gallery.close")}
+            </Btn>
+          </div>
         </div>
       )}
     </Shell>

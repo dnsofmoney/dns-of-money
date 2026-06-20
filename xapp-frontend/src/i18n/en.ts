@@ -113,6 +113,9 @@ export const en = {
     countMinted: "{count} minted on the XRP Ledger",
     loadError: "Could not load the gallery — try again shortly.",
     empty: "No identities minted yet.",
+    viewIdentity: "View {alias} full size",
+    openImage: "Open image",
+    close: "Close",
   },
 
   buy: {

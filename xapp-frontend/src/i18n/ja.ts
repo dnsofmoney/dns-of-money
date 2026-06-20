@@ -110,6 +110,9 @@ export const ja: Messages = {
     countMinted: "XRP Ledger 上で{count}件ミント済み",
     loadError: "ギャラリーを読み込めませんでした — しばらくして再度お試しください。",
     empty: "まだミントされたアイデンティティはありません。",
+    viewIdentity: "{alias} を全画面で表示",
+    openImage: "画像を開く",
+    close: "閉じる",
   },
 
   buy: {
