@@ -966,7 +966,18 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
   const [items, setItems] = useState<GalleryItem[] | null>(null);
   const [err, setErr] = useState("");
   const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
   const touchStartX = useRef<number | null>(null);
+
+  async function copyTokenId(id: string) {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard blocked in this WebView — no-op rather than a broken state */
+    }
+  }
 
   useEffect(() => {
     request<{ success: boolean; data: { count: number; cap: number; aliases: GalleryItem[] } }>(
@@ -1001,6 +1012,9 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [openIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear the "copied" flash whenever the open image changes (or closes).
+  useEffect(() => { setCopied(false); }, [openIdx]);
 
   const sel = openIdx !== null && items ? items[openIdx] : null;
   const navBtn = (disabled: boolean): React.CSSProperties => ({
@@ -1047,7 +1061,7 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
           onClick={() => setOpenIdx(null)}
           style={{
             position: "fixed", inset: 0, zIndex: 200,
-            background: "rgba(0, 0, 0, 0.86)",
+            background: "rgba(0, 0, 0, 0.9)",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             padding: 20, boxSizing: "border-box",
           }}
@@ -1056,7 +1070,14 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
             type="button"
             onClick={() => setOpenIdx(null)}
             aria-label={t("gallery.close")}
-            style={{ position: "absolute", top: 14, right: 16, width: 40, height: 40, borderRadius: 20, border: "none", background: "rgba(255, 255, 255, 0.12)", color: "#fff", fontSize: "1.2em", lineHeight: 1, cursor: "pointer" }}
+            style={{
+              position: "absolute", top: 16, right: 16, zIndex: 2,
+              width: 44, height: 44, borderRadius: 22,
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              background: "rgba(0, 0, 0, 0.55)", color: "#fff",
+              fontSize: "1.25em", lineHeight: 1, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
           >
             ✕
           </button>
@@ -1085,11 +1106,26 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
 
           <div style={{ color: "#fff", fontSize: "1.05em", fontWeight: 600, marginTop: 16 }}>{sel.alias_name}</div>
           {sel.nft_token_id && (
-            <div style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: "0.72em", fontFamily: "monospace", marginTop: 4 }}>
-              {shortAddr(sel.nft_token_id)}
-            </div>
+            <button
+              type="button"
+              onClick={() => copyTokenId(sel.nft_token_id!)}
+              aria-label={t("gallery.copyTokenId")}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8,
+                padding: "5px 11px", borderRadius: 8,
+                border: "1px solid rgba(255, 255, 255, 0.18)",
+                background: "rgba(255, 255, 255, 0.06)",
+                color: copied ? "var(--xapp-gold)" : "rgba(255, 255, 255, 0.72)",
+                fontFamily: "monospace", fontSize: "0.72em", cursor: "pointer",
+                transition: "color 0.15s",
+              }}
+            >
+              {copied
+                ? t("gallery.tokenIdCopied")
+                : <>{shortAddr(sel.nft_token_id)} <span aria-hidden="true" style={{ opacity: 0.7 }}>⧉</span></>}
+            </button>
           )}
-          <div style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: "0.72em", marginTop: 6 }}>
+          <div style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: "0.72em", marginTop: 10 }}>
             {t("gallery.position", { index: openIdx + 1, total })}
           </div>
 
