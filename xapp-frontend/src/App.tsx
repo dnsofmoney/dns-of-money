@@ -9,7 +9,19 @@ type Screen = "register" | "send" | "gallery" | "buy";
 export default function App() {
   const { session, loading, error } = useXaman();
   const [screen, setScreen] = useState<Screen>("register");
+  const [sendAlias, setSendAlias] = useState<string | null>(null);
   const t = useT();
+
+  // Manual tab presses always start Send fresh; only the gallery's "Send"
+  // action pre-fills an alias (via goSendTo, which bypasses this).
+  function switchTab(s: Screen) {
+    setSendAlias(null);
+    setScreen(s);
+  }
+  function goSendTo(alias: string) {
+    setSendAlias(alias);
+    setScreen("send");
+  }
 
   // Apply the Xaman-reported locale once the session resolves (unless the user
   // has manually chosen a language). Hook runs unconditionally, before returns.
@@ -29,9 +41,9 @@ export default function App() {
   return (
     <>
       <div style={{ paddingBottom: 64 }}>
-        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen /> : screen === "gallery" ? <GalleryScreen /> : <BuyScreen />}
+        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen initialAlias={sendAlias} /> : screen === "gallery" ? <GalleryScreen onSend={goSendTo} /> : <BuyScreen />}
       </div>
-      <TabBar screen={screen} onSwitch={setScreen} />
+      <TabBar screen={screen} onSwitch={switchTab} />
     </>
   );
 }
@@ -722,13 +734,13 @@ interface CreateSendData {
 
 type SendPhase = "idle" | "loading" | "signing" | "done" | "error";
 
-function SendScreen() {
+function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
   const { session } = useXaman();
   const { request } = useApiClient();
   const t = useT();
   const apiBase = import.meta.env.VITE_API_BASE_URL as string;
 
-  const [alias, setAlias] = useState("pay:");
+  const [alias, setAlias] = useState(initialAlias ?? "pay:");
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewErr, setPreviewErr] = useState("");
   const [amount, setAmount] = useState("1");
@@ -763,6 +775,12 @@ function SendScreen() {
       }
     }, 600);
   }
+
+  // Arrived from the gallery with a chosen alias — resolve its preview now.
+  useEffect(() => {
+    if (initialAlias) onAliasChange(initialAlias);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function send() {
     const amt = parseFloat(amount);
@@ -928,16 +946,18 @@ interface GalleryItem {
   created_at: string | null;
 }
 
-function GalleryScreen() {
+function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
   const { session } = useXaman();
   const { request } = useApiClient();
   const t = useT();
   const apiBase = import.meta.env.VITE_API_BASE_URL as string;
   const account = session!.context.account;
+  const previewUrl = (a: string) => `${apiBase}/identity/preview/${a}`;
 
   const [items, setItems] = useState<GalleryItem[] | null>(null);
   const [err, setErr] = useState("");
-  const [selected, setSelected] = useState<GalleryItem | null>(null);
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     request<{ success: boolean; data: { count: number; cap: number; aliases: GalleryItem[] } }>(
@@ -948,13 +968,39 @@ function GalleryScreen() {
       .catch(() => setErr(t("gallery.loadError")));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close the lightbox on Escape (desktop / keyboard users).
+  const total = items?.length ?? 0;
+
+  function step(delta: number) {
+    setOpenIdx((i) => (i === null ? i : Math.min(total - 1, Math.max(0, i + delta))));
+  }
+  function onTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX; }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1); // swipe left → next
+  }
+
+  // Keyboard control while the carousel is open (desktop / a11y).
   useEffect(() => {
-    if (!selected) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelected(null); };
+    if (openIdx === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenIdx(null);
+      else if (e.key === "ArrowRight") step(1);
+      else if (e.key === "ArrowLeft") step(-1);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected]);
+  }, [openIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sel = openIdx !== null && items ? items[openIdx] : null;
+  const navBtn = (disabled: boolean): React.CSSProperties => ({
+    position: "absolute", top: "50%", transform: "translateY(-50%)",
+    width: 38, height: 38, borderRadius: 19, border: "none", zIndex: 1,
+    background: "rgba(255, 255, 255, 0.14)", color: "#fff",
+    fontSize: "1.5em", lineHeight: 1, cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.25 : 1,
+  });
 
   return (
     <Shell>
@@ -972,68 +1018,136 @@ function GalleryScreen() {
 
       {items && items.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-          {items.map((it) => (
-            <div key={it.alias_name} style={{ textAlign: "center", minWidth: 0 }}>
-              {/* padding-top:100% forces a perfect square in every WebView —
-                  aspect-ratio CSS is unreliable in Xaman's in-app browser. */}
-              <button
-                type="button"
-                onClick={() => setSelected(it)}
-                aria-label={t("gallery.viewIdentity", { alias: it.alias_name })}
-                style={{ position: "relative", display: "block", width: "100%", padding: 0, paddingTop: "100%", borderRadius: 10, overflow: "hidden", border: "1px solid var(--xapp-border)", background: "var(--xapp-surface)", cursor: "pointer" }}
-              >
-                <img
-                  src={`${apiBase}/identity/preview/${it.alias_name}`}
-                  alt={`${it.alias_name} identity`}
-                  loading="lazy"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
-                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              </button>
-              <div style={{ fontSize: "0.75em", marginTop: 4, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {it.alias_name}
-              </div>
-            </div>
+          {items.map((it, i) => (
+            <GalleryTile
+              key={it.alias_name}
+              src={previewUrl(it.alias_name)}
+              label={it.alias_name}
+              ariaLabel={t("gallery.viewIdentity", { alias: it.alias_name })}
+              onClick={() => setOpenIdx(i)}
+            />
           ))}
         </div>
       )}
 
-      {selected && (
+      {sel && openIdx !== null && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={selected.alias_name}
-          onClick={() => setSelected(null)}
+          aria-label={sel.alias_name}
+          onClick={() => setOpenIdx(null)}
           style={{
             position: "fixed", inset: 0, zIndex: 200,
-            background: "rgba(0, 0, 0, 0.82)",
+            background: "rgba(0, 0, 0, 0.86)",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            padding: 24, boxSizing: "border-box",
+            padding: 20, boxSizing: "border-box",
           }}
         >
-          <img
-            src={`${apiBase}/identity/preview/${selected.alias_name}`}
-            alt={`${selected.alias_name} identity`}
+          <button
+            type="button"
+            onClick={() => setOpenIdx(null)}
+            aria-label={t("gallery.close")}
+            style={{ position: "absolute", top: 14, right: 16, width: 40, height: 40, borderRadius: 20, border: "none", background: "rgba(255, 255, 255, 0.12)", color: "#fff", fontSize: "1.2em", lineHeight: 1, cursor: "pointer" }}
+          >
+            ✕
+          </button>
+
+          <div
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "100%", maxHeight: "68vh", borderRadius: 12, border: "1px solid var(--xapp-border)", objectFit: "contain" }}
-          />
-          <div style={{ color: "#fff", fontSize: "1.05em", fontWeight: 600, marginTop: 16 }}>{selected.alias_name}</div>
-          {selected.nft_token_id && (
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            style={{ position: "relative", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <button type="button" onClick={() => step(-1)} disabled={openIdx === 0} aria-label={t("gallery.prev")} style={{ ...navBtn(openIdx === 0), left: 0 }}>‹</button>
+            <img
+              src={previewUrl(sel.alias_name)}
+              alt={`${sel.alias_name} identity`}
+              style={{ maxWidth: "80%", maxHeight: "60vh", borderRadius: 12, border: "1px solid var(--xapp-border)", objectFit: "contain" }}
+            />
+            <button type="button" onClick={() => step(1)} disabled={openIdx === total - 1} aria-label={t("gallery.next")} style={{ ...navBtn(openIdx === total - 1), right: 0 }}>›</button>
+          </div>
+
+          {/* Preload immediate neighbours so swiping feels instant. */}
+          {[openIdx - 1, openIdx + 1]
+            .filter((n) => n >= 0 && n < total)
+            .map((n) => (
+              <img key={n} src={previewUrl(items![n].alias_name)} alt="" aria-hidden="true" style={{ display: "none" }} />
+            ))}
+
+          <div style={{ color: "#fff", fontSize: "1.05em", fontWeight: 600, marginTop: 16 }}>{sel.alias_name}</div>
+          {sel.nft_token_id && (
             <div style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: "0.72em", fontFamily: "monospace", marginTop: 4 }}>
-              {shortAddr(selected.nft_token_id)}
+              {shortAddr(sel.nft_token_id)}
             </div>
           )}
-          <div style={{ display: "flex", gap: 10, marginTop: 22, width: "100%", maxWidth: 320 }} onClick={(e) => e.stopPropagation()}>
-            <Btn active onClick={() => openBrowser(`${apiBase}/identity/preview/${selected.alias_name}`)} style={{ flex: 1 }}>
-              {t("gallery.openImage")}
+          <div style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: "0.72em", marginTop: 6 }}>
+            {t("gallery.position", { index: openIdx + 1, total })}
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 20, width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+            <Btn active onClick={() => onSend(sel.alias_name)} style={{ flex: 1 }}>
+              {t("gallery.send")}
             </Btn>
-            <Btn onClick={() => setSelected(null)} style={{ flex: 1 }}>
-              {t("gallery.close")}
+            <Btn onClick={() => openBrowser(previewUrl(sel.alias_name))} style={{ flex: 1 }}>
+              {t("gallery.openImage")}
             </Btn>
           </div>
         </div>
       )}
     </Shell>
+  );
+}
+
+// Lazy gallery tile — defers the image request until the tile nears the
+// viewport (IntersectionObserver), so we never fire all ~40 preview requests
+// at once. The preview endpoint renders on demand (~0.5–1.3s, uncached).
+function GalleryTile({ src, label, ariaLabel, onClick }: {
+  src: string;
+  label: string;
+  ariaLabel: string;
+  onClick: () => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") { setVisible(true); return; }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) { setVisible(true); io.disconnect(); }
+      },
+      { rootMargin: "300px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div style={{ textAlign: "center", minWidth: 0 }}>
+      {/* padding-top:100% forces a perfect square in every WebView —
+          aspect-ratio CSS is unreliable in Xaman's in-app browser. */}
+      <button
+        ref={ref}
+        type="button"
+        onClick={onClick}
+        aria-label={ariaLabel}
+        style={{ position: "relative", display: "block", width: "100%", padding: 0, paddingTop: "100%", borderRadius: 10, overflow: "hidden", border: "1px solid var(--xapp-border)", background: "var(--xapp-surface)", cursor: "pointer" }}
+      >
+        {visible && (
+          <img
+            src={src}
+            alt=""
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        )}
+      </button>
+      <div style={{ fontSize: "0.75em", marginTop: 4, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {label}
+      </div>
+    </div>
   );
 }
 

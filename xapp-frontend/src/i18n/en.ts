@@ -115,7 +115,11 @@ export const en = {
     empty: "No identities minted yet.",
     viewIdentity: "View {alias} full size",
     openImage: "Open image",
+    send: "Send",
     close: "Close",
+    prev: "Previous",
+    next: "Next",
+    position: "{index} of {total}",
   },
 
   buy: {
