@@ -26,6 +26,9 @@ import type {
   Identity,
   RegistrationResponse,
   ResolutionResponse,
+  SendOptions,
+  SendPreview,
+  SendResult,
 } from "./models";
 
 const DEFAULT_BASE_URL = "https://api.dnsofmoney.com";
@@ -103,6 +106,73 @@ export class DNSOfMoneyClient {
   async checkAvailability(aliasName: string): Promise<boolean> {
     const data = await this.get(`/v1/aliases/check/${aliasName}`);
     return data.status === "available";
+  }
+
+  /**
+   * Preview where a payment would go without executing.
+   *
+   * No API key required. Returns the destination address (masked),
+   * rail, fee estimate, and identity info.
+   *
+   * @param alias - A pay: alias (e.g., "pay:vendor.alpha") or bare name ("vendor.alpha").
+   * @throws {AliasNotFoundError} If the alias does not exist.
+   */
+  async sendPreview(alias: string): Promise<SendPreview> {
+    const data = await this.get(`/api/v1/send/preview/${alias}`);
+    return {
+      alias: data.alias ?? alias,
+      resolved: data.resolved ?? false,
+      destination_address: data.destination_address,
+      display_name: data.display_name,
+      rail: data.rail,
+      currency: data.currency ?? "USD",
+      fee_estimate: data.fee_estimate,
+      identity: data.identity,
+    };
+  }
+
+  /**
+   * Send money to a pay: alias.
+   *
+   * Requires API key. Resolves the alias globally, routes to the best
+   * payment rail, generates an ISO 20022 message, and executes settlement.
+   *
+   * @param alias - Target pay: alias (e.g., "pay:vendor.alpha").
+   * @param amount - Amount in currency units.
+   * @param options - Optional currency, memo, and idempotencyKey. An
+   *   idempotency key is auto-generated if not provided.
+   * @throws {AliasNotFoundError} If the alias does not exist.
+   * @throws {AuthenticationError} If the API key is missing or invalid.
+   */
+  async send(
+    alias: string,
+    amount: number,
+    options: SendOptions = {}
+  ): Promise<SendResult> {
+    const currency = options.currency ?? "USD";
+    const body: Record<string, unknown> = {
+      alias,
+      amount,
+      currency,
+      idempotency_key: options.idempotencyKey ?? generateIdempotencyKey(),
+    };
+    if (options.memo !== undefined) {
+      body.memo = options.memo;
+    }
+
+    const data = await this.post("/api/v1/send", body);
+    return {
+      transaction_id: data.transaction_id ?? "",
+      status: data.status ?? "",
+      alias: data.alias ?? alias,
+      amount: data.amount ?? amount,
+      currency: data.currency ?? currency,
+      rail: data.rail ?? "",
+      tx_hash: data.tx_hash,
+      settle_time_seconds: data.settle_time_seconds,
+      memo: data.memo,
+      created_at: data.created_at,
+    };
   }
 
   // ── Internal HTTP helpers ─────────────────────────────────────────────
@@ -185,6 +255,21 @@ export class DNSOfMoneyClient {
   }
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Generate a unique idempotency key for a send. Prefers crypto.randomUUID
+ * (Node 19+, all modern browsers); falls back to a timestamp+random hex token.
+ */
+function generateIdempotencyKey(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) {
+    return `sdk-${c.randomUUID()}`;
+  }
+  const rand = Math.random().toString(16).slice(2);
+  return `sdk-${Date.now().toString(16)}${rand}`;
+}
+
 // ── Module-level convenience functions ────────────────────────────────────
 
 /**
@@ -225,6 +310,29 @@ export async function checkAvailability(
   baseUrl: string = DEFAULT_BASE_URL
 ): Promise<boolean> {
   return new DNSOfMoneyClient({ baseUrl }).checkAvailability(aliasName);
+}
+
+/**
+ * Preview a send-to-alias payment. See DNSOfMoneyClient.sendPreview for full docs.
+ */
+export async function sendPreview(
+  alias: string,
+  baseUrl: string = DEFAULT_BASE_URL
+): Promise<SendPreview> {
+  return new DNSOfMoneyClient({ baseUrl }).sendPreview(alias);
+}
+
+/**
+ * Send money to a pay: alias. See DNSOfMoneyClient.send for full docs.
+ */
+export async function send(
+  alias: string,
+  amount: number,
+  apiKey: string,
+  options: SendOptions = {},
+  baseUrl: string = DEFAULT_BASE_URL
+): Promise<SendResult> {
+  return new DNSOfMoneyClient({ apiKey, baseUrl }).send(alias, amount, options);
 }
 
 // ── Response parsing ──────────────────────────────────────────────────────

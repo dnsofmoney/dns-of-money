@@ -1,6 +1,6 @@
 # dnsofmoney — TypeScript SDK
 
-Resolve, register, and check availability of `pay:` aliases using the DNS of Money API.
+Resolve, register, send to, and check availability of `pay:` aliases using the DNS of Money API.
 
 **No external dependencies** — uses only the built-in `fetch()` API.
 
@@ -52,6 +52,28 @@ const available = await checkAvailability("pay:desired.name");
 console.log(available ? "Available!" : "Taken.");
 ```
 
+### Preview a payment (dry-run, no API key)
+
+```typescript
+import { sendPreview } from "dnsofmoney";
+
+const preview = await sendPreview("pay:vendor.alpha");
+console.log(preview.resolved, preview.rail, preview.destination_address);
+```
+
+### Send money to a pay: alias
+
+```typescript
+import { send } from "dnsofmoney";
+
+const receipt = await send("pay:vendor.alpha", 5.0, "fas_live_...", {
+  currency: "XRP",
+  memo: "invoice 1234",
+  // idempotencyKey auto-generated if omitted — safe to retry
+});
+console.log(receipt.status, receipt.rail, receipt.tx_hash);
+```
+
 ### Client instance (reuse connections)
 
 ```typescript
@@ -60,6 +82,8 @@ import { DNSOfMoneyClient } from "dnsofmoney";
 const client = new DNSOfMoneyClient({ apiKey: "fas_live_..." });
 const result = await client.resolve("pay:vendor.alpha");
 const available = await client.checkAvailability("pay:new.name");
+const preview = await client.sendPreview("pay:vendor.alpha");
+const receipt = await client.send("pay:vendor.alpha", 5.0, { currency: "XRP" });
 ```
 
 ## Error Handling

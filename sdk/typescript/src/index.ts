@@ -3,6 +3,8 @@ export {
   resolve,
   register,
   checkAvailability,
+  sendPreview,
+  send,
 } from "./client";
 export type { ClientOptions } from "./client";
 
@@ -23,4 +25,7 @@ export type {
   AgentCard,
   ResolutionResponse,
   RegistrationResponse,
+  SendPreview,
+  SendResult,
+  SendOptions,
 } from "./models";
