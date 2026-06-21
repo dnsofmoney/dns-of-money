@@ -81,3 +81,37 @@ export interface RegistrationResponse {
   proof?: Record<string, unknown>;
   created_at?: string;
 }
+
+/** Preview of where a payment would go (dry-run, no execution). */
+export interface SendPreview {
+  alias: string;
+  resolved: boolean;
+  destination_address?: string;
+  display_name?: string;
+  rail?: string;
+  currency: string;
+  fee_estimate?: string;
+  identity?: Record<string, unknown>;
+}
+
+/** Result of a send-to-alias payment execution. */
+export interface SendResult {
+  transaction_id: string;
+  status: string;
+  alias: string;
+  amount: number;
+  currency: string;
+  rail: string;
+  tx_hash?: string;
+  settle_time_seconds?: number;
+  memo?: string;
+  created_at?: string;
+}
+
+/** Optional parameters for a send-to-alias payment. */
+export interface SendOptions {
+  currency?: string;
+  memo?: string;
+  /** Unique key to prevent double-send. Auto-generated if not provided. */
+  idempotencyKey?: string;
+}
