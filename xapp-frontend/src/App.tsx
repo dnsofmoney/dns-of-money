@@ -362,7 +362,31 @@ function RegisterScreen() {
         ws.onerror = () => ws.close();
       }
     } catch (e) {
-      setErrMsg(e instanceof ApiError ? t("common.serverError", { status: e.status }) : e instanceof Error ? e.message : String(e));
+      // 409 = this wallet already has a founding alias (one per wallet). Route
+      // to the clean "already registered" screen instead of a raw error code —
+      // e.g. after tapping "Register another", or relaunching post-registration.
+      if (e instanceof ApiError && e.status === 409) {
+        try {
+          const wc = await fetch(
+            `${apiBase}/api/v1/founding/wallet-check/${encodeURIComponent(account)}`,
+          ).then((r) => r.json());
+          if (wc.data?.already_registered) {
+            setExistingAlias(wc.data.existing_alias ?? "pay:???");
+            return;
+          }
+        } catch {
+          /* fall through to the inline message */
+        }
+        setErrMsg(t("register.oneAliasPerWallet"));
+        setPhase("error");
+        setStep(2);
+        return;
+      }
+      const msg =
+        e instanceof ApiError
+          ? ((e.body as { message?: string } | null)?.message ?? t("common.serverError", { status: e.status }))
+          : e instanceof Error ? e.message : String(e);
+      setErrMsg(msg);
       setPhase("error");
       setStep(2);
     }
