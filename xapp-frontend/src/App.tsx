@@ -1397,6 +1397,7 @@ function BuyScreen() {
             onClick={buy}
             disabled={!resolved || phase === "preparing"}
             active={!!resolved && phase !== "preparing"}
+            purple
             style={{ marginTop: 24 }}
           >
             {phase === "preparing" ? t("buy.preparingCheckout") : t("buy.buyXrp")}
@@ -1539,15 +1540,18 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-function Btn({ children, onClick, disabled, active, gold, style }: {
+function Btn({ children, onClick, disabled, active, gold, purple, style }: {
   children: React.ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   active?: boolean;
   gold?: boolean;
+  purple?: boolean;
   style?: React.CSSProperties;
 }) {
-  const activeBg = gold
+  const activeBg = purple
+    ? "linear-gradient(135deg, #7d00ff, #9b59ff)" // MoonPay brand purple
+    : gold
     ? "var(--xapp-gold)"
     : "linear-gradient(135deg, var(--xapp-accent), var(--xapp-accent-light))";
   return (
