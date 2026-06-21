@@ -1,8 +1,26 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useXaman } from "./xaman/useXaman";
 import { ApiError, useApiClient } from "./api/client";
 import { openBrowser, openSignRequest } from "./xaman/sdk";
 import { useT, useI18n, useXamanLocale, SUPPORTED, LOCALE_LABELS, type TFunc } from "./i18n";
+
+// ── Client telemetry ──────────────────────────────────────────────────────────
+// Best-effort POST of one sign-funnel event to the backend (POST /xapp/event).
+// Fire-and-forget: telemetry must never break or block the user flow, so every
+// failure is swallowed. Account/network are derived server-side from the JWT.
+type EventFields = { alias?: string; payload_uuid?: string; detail?: string };
+function useEventLogger(flow: "register" | "send" | "claim") {
+  const { request } = useApiClient();
+  return useCallback(
+    (event: string, extra?: EventFields) => {
+      request("/xapp/event", {
+        method: "POST",
+        body: JSON.stringify({ flow, event, ...extra }),
+      }).catch(() => {});
+    },
+    [request, flow],
+  );
+}
 
 type Screen = "register" | "send" | "gallery" | "buy";
 
@@ -204,6 +222,8 @@ function RegisterScreen() {
   const { session } = useXaman();
   const { request } = useApiClient();
   const t = useT();
+  const logEvent = useEventLogger("register");
+  const logClaim = useEventLogger("claim");
   const apiBase = import.meta.env.VITE_API_BASE_URL as string;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -323,6 +343,7 @@ function RegisterScreen() {
       setPhase("signing");
       const { uuid, websocket_status, deeplink } = resp.data;
       setSignCtx({ uuid, deeplink: deeplink ?? null });
+      logEvent("payload_created", { alias: aliasName, payload_uuid: uuid });
 
       let settled = false;
       function settle(signed: boolean, txid?: string, reason?: string) {
@@ -332,8 +353,10 @@ function RegisterScreen() {
         // still be signed via the live websocket subscription below.
         if (signed && txid) {
           settled = true;
+          logEvent("signed", { alias: aliasName, payload_uuid: uuid });
           doRegister(aliasName, txid);
         } else {
+          logEvent("rejected", { alias: aliasName, payload_uuid: uuid, detail: reason });
           setErrMsg(reason ?? t("common.rejectedInXaman"));
           setPhase("error");
           setStep(2);
@@ -342,11 +365,13 @@ function RegisterScreen() {
       // Re-opened sign requests (fallback button) route their result here too.
       settleRef.current = (signed, txid) => settle(signed, txid);
 
+      logEvent("sign_opened", { alias: aliasName, payload_uuid: uuid });
       openSignRequest(uuid)
         .then((r) => settle(r.signed, r.signed ? r.txid : undefined, r.reason))
         .catch(() => {
           // Bridge timeout — leave the user on the signing screen with the
           // fallback visible rather than bouncing them back to confirm.
+          logEvent("timeout", { alias: aliasName, payload_uuid: uuid });
           if (!settled) setErrMsg(t("common.signTimedOut"));
         });
 
@@ -427,10 +452,14 @@ function RegisterScreen() {
       );
       if (!resp.data?.uuid) throw new Error("No claim payload returned");
       setClaimSignCtx({ uuid: resp.data.uuid, deeplink: resp.data.deeplink ?? null });
+      logClaim("payload_created", { alias: mintedAlias, payload_uuid: resp.data.uuid });
+      logClaim("sign_opened", { alias: mintedAlias, payload_uuid: resp.data.uuid });
       const r = await openSignRequest(resp.data.uuid);
       if (r.signed) {
+        logClaim("signed", { alias: mintedAlias, payload_uuid: resp.data.uuid });
         setClaimPhase("claimed");
       } else {
+        logClaim("rejected", { alias: mintedAlias, payload_uuid: resp.data.uuid, detail: r.reason });
         setClaimErr(r.reason ?? t("common.rejectedInXaman"));
         setClaimPhase("error");
       }
@@ -462,6 +491,7 @@ function RegisterScreen() {
   // didn't surface it the first time). Result routes through the same settle.
   function reopenSign() {
     if (!signCtx) return;
+    logEvent("fallback_reopen", { payload_uuid: signCtx.uuid });
     openSignRequest(signCtx.uuid)
       .then((r) => settleRef.current?.(r.signed, r.signed ? r.txid : undefined))
       .catch(() => {});
@@ -469,6 +499,7 @@ function RegisterScreen() {
 
   function reopenClaim() {
     if (!claimSignCtx) return;
+    logClaim("fallback_reopen", { payload_uuid: claimSignCtx.uuid });
     openSignRequest(claimSignCtx.uuid)
       .then((r) => { if (r.signed) setClaimPhase("claimed"); })
       .catch(() => {});
@@ -582,7 +613,15 @@ function RegisterScreen() {
                 {claimPhase === "claiming" ? t("register.openingXaman") : t("register.claimNft")}
               </Btn>
               {claimPhase === "claiming" && claimSignCtx && (
-                <SignFallback uuid={claimSignCtx.uuid} deeplink={claimSignCtx.deeplink} onReopen={reopenClaim} />
+                <SignFallback
+                  uuid={claimSignCtx.uuid}
+                  deeplink={claimSignCtx.deeplink}
+                  onReopen={reopenClaim}
+                  onDeeplink={() => {
+                    logClaim("fallback_deeplink", { payload_uuid: claimSignCtx.uuid });
+                    if (claimSignCtx.deeplink) openBrowser(claimSignCtx.deeplink);
+                  }}
+                />
               )}
               {claimPhase === "error" && (
                 <p style={{ color: "var(--xapp-danger)", fontSize: "0.82em", margin: "10px 0 0" }}>{claimErr}</p>
@@ -775,7 +814,15 @@ function RegisterScreen() {
         </p>
 
         {phase === "signing" && signCtx && (
-          <SignFallback uuid={signCtx.uuid} deeplink={signCtx.deeplink} onReopen={reopenSign} />
+          <SignFallback
+            uuid={signCtx.uuid}
+            deeplink={signCtx.deeplink}
+            onReopen={reopenSign}
+            onDeeplink={() => {
+              logEvent("fallback_deeplink", { payload_uuid: signCtx.uuid });
+              if (signCtx.deeplink) openBrowser(signCtx.deeplink);
+            }}
+          />
         )}
       </div>
     </Shell>
@@ -807,6 +854,7 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
   const { session } = useXaman();
   const { request } = useApiClient();
   const t = useT();
+  const logEvent = useEventLogger("send");
   const apiBase = import.meta.env.VITE_API_BASE_URL as string;
 
   const [alias, setAlias] = useState(initialAlias ?? "pay:");
@@ -872,18 +920,31 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
       setPhase("signing");
       const { uuid, websocket_status, deeplink } = resp.data;
       setSignCtx({ uuid, deeplink: deeplink ?? null });
+      logEvent("payload_created", { alias: alias.trim(), payload_uuid: uuid });
 
       let settled = false;
       function settle(signed: boolean, txid?: string, reason?: string) {
         if (settled) return;
-        if (signed && txid) { settled = true; setTxid(txid); setPhase("done"); }
-        else { setErrMsg(reason ?? t("common.rejectedInXaman")); setPhase("error"); }
+        if (signed && txid) {
+          settled = true;
+          logEvent("signed", { alias: alias.trim(), payload_uuid: uuid });
+          setTxid(txid);
+          setPhase("done");
+        } else {
+          logEvent("rejected", { alias: alias.trim(), payload_uuid: uuid, detail: reason });
+          setErrMsg(reason ?? t("common.rejectedInXaman"));
+          setPhase("error");
+        }
       }
       settleRef.current = (signed, txid) => settle(signed, txid);
 
+      logEvent("sign_opened", { alias: alias.trim(), payload_uuid: uuid });
       openSignRequest(uuid)
         .then((r) => settle(r.signed, r.txid, r.reason))
-        .catch(() => { if (!settled) setErrMsg(t("common.signTimedOut")); });
+        .catch(() => {
+          logEvent("timeout", { alias: alias.trim(), payload_uuid: uuid });
+          if (!settled) setErrMsg(t("common.signTimedOut"));
+        });
 
       if (websocket_status) {
         const ws = new WebSocket(websocket_status);
@@ -910,6 +971,7 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
 
   function reopenSign() {
     if (!signCtx) return;
+    logEvent("fallback_reopen", { payload_uuid: signCtx.uuid });
     openSignRequest(signCtx.uuid)
       .then((r) => settleRef.current?.(r.signed, r.signed ? r.txid : undefined))
       .catch(() => {});
@@ -1013,7 +1075,15 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
       </Btn>
 
       {phase === "signing" && signCtx && (
-        <SignFallback uuid={signCtx.uuid} deeplink={signCtx.deeplink} onReopen={reopenSign} />
+        <SignFallback
+          uuid={signCtx.uuid}
+          deeplink={signCtx.deeplink}
+          onReopen={reopenSign}
+          onDeeplink={() => {
+            logEvent("fallback_deeplink", { payload_uuid: signCtx.uuid });
+            if (signCtx.deeplink) openBrowser(signCtx.deeplink);
+          }}
+        />
       )}
     </Shell>
   );
@@ -1467,7 +1537,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 // bridge is the primary path, but if the host doesn't surface the request,
 // these give the user a way to re-open it or hand off to Xaman via the
 // deeplink (whose signature is still caught by the live websocket).
-function SignFallback({ deeplink, onReopen }: { uuid: string; deeplink: string | null; onReopen: () => void }) {
+function SignFallback({ deeplink, onReopen, onDeeplink }: { uuid: string; deeplink: string | null; onReopen: () => void; onDeeplink?: () => void }) {
   const t = useT();
   return (
     <div style={{ marginTop: 28, padding: "14px 16px", border: "1px solid var(--xapp-border)", borderRadius: 12, background: "var(--xapp-surface)", textAlign: "center" }}>
@@ -1477,7 +1547,7 @@ function SignFallback({ deeplink, onReopen }: { uuid: string; deeplink: string |
       <Btn active onClick={onReopen}>{t("sign.reopen")}</Btn>
       {deeplink && (
         <button
-          onClick={() => openBrowser(deeplink)}
+          onClick={() => (onDeeplink ? onDeeplink() : openBrowser(deeplink))}
           style={{ display: "block", width: "100%", marginTop: 10, padding: "8px", background: "none", border: "none", color: "var(--xapp-accent)", fontSize: "0.82em", cursor: "pointer" }}
         >
           {t("sign.openInXaman")}
