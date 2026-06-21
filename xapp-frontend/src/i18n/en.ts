@@ -141,6 +141,18 @@ export const en = {
       "Checkout opened in your browser. Finish there — XRP arrives at {alias} when MoonPay settles.",
     couldNotStart: "Could not start checkout",
   },
+
+  sign: {
+    notOpening: "Sign request didn't open?",
+    reopen: "Open sign request",
+    openInXaman: "Not opening? Open in Xaman →",
+  },
+
+  legal: {
+    terms: "Terms",
+    privacy: "Privacy",
+    support: "Support",
+  },
 };
 
 export type Messages = typeof en;

@@ -138,4 +138,16 @@ export const ja: Messages = {
       "ブラウザでチェックアウトを開きました。そちらで完了してください — MoonPayの決済後、XRPが{alias}に届きます。",
     couldNotStart: "チェックアウトを開始できませんでした",
   },
+
+  sign: {
+    notOpening: "署名リクエストが開きませんか？",
+    reopen: "署名リクエストを開く",
+    openInXaman: "開かない場合は Xaman で開く →",
+  },
+
+  legal: {
+    terms: "利用規約",
+    privacy: "プライバシー",
+    support: "サポート",
+  },
 };
