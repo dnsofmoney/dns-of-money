@@ -6,11 +6,17 @@
     <meta name="color-scheme" content="light dark" />
     <title>DNS://Money</title>
     <!--
-      The Xaman xApp SDK (xumm-xapp-sdk) is bundled via npm and imported in
-      src/xaman/sdk.ts — NOT loaded from a CDN here. The universal CDN
-      `xumm.min.js` only exposes window.Xumm (an OAuth2 constructor) and never
-      creates the xApp client we need, so it's intentionally absent.
-
+      Xaman xApp SDK (CDN). Present because the Xaman xApp review requires the
+      official SDK <script> in index.html. NOTE: this universal build only
+      defines window.Xumm (an OAuth2 constructor) and is INERT unless you call
+      `new Xumm(apiKey)` — which we never do, so it attaches no listeners and
+      cannot conflict. The xApp commands (openSignRequest / openBrowser / close)
+      are actually driven by the dedicated `xumm-xapp-sdk` bundled via npm and
+      imported in src/xaman/sdk.ts, which is the SDK that reliably reaches the
+      native WebView bridge.
+    -->
+    <script src="https://xumm.app/assets/cdn/xumm.min.js"></script>
+    <!--
       Apply xAppStyle CSS variables immediately from the ?xAppStyle= URL param.
       Runs before the JS bundle loads so loading/error states are never invisible
       on dark themes (DARK / MOONLIGHT / ROYAL). Xaman passes xAppStyle in the
