@@ -1,128 +1,77 @@
-// Low-level wrapper around the Xaman xApp <-> host postMessage protocol.
+// Low-level wrapper around window.xumm — the official Xaman xApp SDK injected
+// by the CDN <script src="https://xumm.app/assets/cdn/xumm.min.js"> in
+// index.html. This is the ONLY file in the codebase allowed to touch
+// window.xumm directly; every other consumer goes through useXaman() or
+// imports the helpers below. Non-negotiable #1 per the xaman-xapp-frontend
+// skill.
 //
-// Based on the open-source xAppBuilder preload
-// (https://github.com/xrpl-labs/xapp/blob/master/app/work/preloadwebview.js),
-// the xApp <-> Xaman bridge is pure `window.postMessage` — NOT an injected
-// `window.xumm` object. The xApp sends JSON-encoded command envelopes and
-// receives JSON-encoded method replies in the same way:
-//
-//   xApp  →  host : window.postMessage(JSON.stringify({ command, ...args }), "*")
-//   host  →  xApp : window.postMessage(JSON.stringify({ method, ...data }), ...)
-//
-// The widely-referenced `xumm.min.js` CDN script is a SDK that wraps this
-// protocol for convenience + browser-OAuth flows — but relying on it inside
-// the WebView breaks because it only registers `window.Xumm` (capital) as an
-// OAuth client, not an xApp SDK. Speaking the raw protocol ourselves gives
-// us exactly what we need for the MVP and stays robust across Xaman versions.
-//
-// Non-negotiable #1 per xaman-xapp-frontend skill: this file is the ONLY
-// place that touches the host bridge directly.
+// History / why this matters: a previous revision replaced this SDK with a
+// hand-rolled `window.postMessage` bridge ("speak the raw protocol"). Inside
+// the real Xaman WebView that bridge never reaches the host — the JSON command
+// envelopes it posted are not the channel Xaman listens on — so BOTH sign
+// requests (openSignRequest) and external links (openBrowser) silently did
+// nothing: no payload ever appeared in the Requests tab, and Terms/Privacy/
+// Support never opened. The supported, audited path is the CDN SDK's
+// `window.xumm.xapp.*` methods, which know the native bridge for both iOS
+// (WKWebView) and Android. We use them directly here.
 
 import type { SignRequestResult } from "./types";
 
+declare global {
+  interface Window {
+    xumm?: XummSdk;
+  }
+}
+
+interface XummSdk {
+  on(
+    event: "ready" | "destination" | "qr",
+    handler: (...args: unknown[]) => void,
+  ): void;
+  ready: Promise<void>;
+  environment: {
+    jwt: Promise<string | undefined>;
+    ott: Promise<Record<string, unknown> | undefined>;
+    bearer: Promise<string | undefined>;
+  };
+  user: {
+    account: Promise<string | undefined>;
+  };
+  xapp: {
+    openSignRequest(opts: { uuid: string }): Promise<SignRequestResult>;
+    close(opts?: { refreshEvents?: boolean }): Promise<void>;
+    tx(opts: { tx: string }): Promise<void>;
+    scanQr(): Promise<{ reason?: string; qrContents?: string }>;
+    openBrowser(opts: { url: string }): Promise<void>;
+    navigate(opts: { xApp: string; destination?: string }): Promise<void>;
+    share(opts: { text?: string; url?: string }): Promise<void>;
+  };
+}
+
 /**
- * The set of commands the host (Xaman / xAppBuilder) recognises when we
- * post a message. Keep this in sync with xAppBuilder's preloadwebview.js.
+ * Returns the injected Xaman SDK, or null when it isn't present (e.g. the
+ * dev server opened in a plain browser outside Xaman / xAppBuilder, where the
+ * CDN script does not instantiate window.xumm). Callers that must have the SDK
+ * use getXumm(); fire-and-forget helpers degrade gracefully on null.
  */
-type XappCommand =
-  | "ready"
-  | "close"
-  | "openSignRequest"
-  | "scanQr"
-  | "openBrowser"
-  | "selectDestination"
-  | "share"
-  | "txDetails"
-  | "xAppNavigate"
-  | "networkSwitch";
+function maybeXumm(): XummSdk | null {
+  return typeof window !== "undefined" && window.xumm ? window.xumm : null;
+}
 
-type HostReply =
-  | { method: "ready" }
-  | { method: "close" }
-  | ({ method: "openSignRequest" } & SignRequestResult)
-  | { method: "scanQr"; reason?: string; qrContents?: string }
-  | { method: string; [key: string]: unknown };
-
-type ReplyHandler = (reply: HostReply) => void;
-
-// Replies from Xaman come keyed by `method` name — there is no correlation
-// id in the protocol, so we queue handlers per-method FIFO. A single xApp
-// session rarely has two in-flight requests of the same method, so this is
-// safe in practice.
-const replyQueue = new Map<string, ReplyHandler[]>();
-
-let bridgeInitialized = false;
-
-function handleHostMessage(ev: MessageEvent): void {
-  // Xaman posts JSON strings in xAppBuilder; native Xaman may post objects.
-  let parsed: HostReply;
-  if (typeof ev.data === "string") {
-    try {
-      parsed = JSON.parse(ev.data) as HostReply;
-    } catch {
-      return;
-    }
-  } else if (ev.data && typeof ev.data === "object" && "method" in ev.data) {
-    parsed = ev.data as HostReply;
-  } else {
-    return;
+/**
+ * Returns the injected Xaman SDK. Throws if the <script> tag in index.html
+ * didn't load / instantiate (typical cause: running outside Xaman or
+ * xAppBuilder).
+ */
+export function getXumm(): XummSdk {
+  const xumm = maybeXumm();
+  if (!xumm) {
+    throw new Error(
+      'xumm SDK not loaded — check the <script src="https://xumm.app/assets/cdn/xumm.min.js"> ' +
+        "tag in index.html, and confirm you're running inside Xaman or xAppBuilder.",
+    );
   }
-  if (!parsed || typeof parsed !== "object" || !("method" in parsed)) return;
-
-  const handlers = replyQueue.get(parsed.method);
-  if (!handlers || handlers.length === 0) return;
-  const handler = handlers.shift()!;
-  handler(parsed);
-}
-
-function initBridge(): void {
-  if (bridgeInitialized || typeof window === "undefined") return;
-  // window — iOS WKWebView + xAppBuilder (Electron)
-  window.addEventListener("message", handleHostMessage);
-  // document — Android WebView delivers messages here
-  document.addEventListener("message", handleHostMessage as EventListener);
-  bridgeInitialized = true;
-}
-
-function waitForReply(method: string, timeoutMs = 0): Promise<HostReply> {
-  initBridge();
-  return new Promise((resolve, reject) => {
-    const handlers = replyQueue.get(method) ?? [];
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const handler: ReplyHandler = (reply) => {
-      if (timer) clearTimeout(timer);
-      resolve(reply);
-    };
-    handlers.push(handler);
-    replyQueue.set(method, handlers);
-
-    if (timeoutMs > 0) {
-      timer = setTimeout(() => {
-        const current = replyQueue.get(method) ?? [];
-        const idx = current.indexOf(handler);
-        if (idx >= 0) current.splice(idx, 1);
-        reject(new Error(`Timed out waiting for Xaman "${method}" reply`));
-      }, timeoutMs);
-    }
-  });
-}
-
-function sendCommand(
-  command: XappCommand,
-  args: Record<string, unknown> = {},
-): void {
-  initBridge();
-  if (typeof window === "undefined") return;
-  const message = JSON.stringify({ command, ...args });
-  // Real Xaman mobile (React Native WebView) uses window.ReactNativeWebView.postMessage.
-  // xAppBuilder (desktop Electron) uses standard window.postMessage.
-  const rnBridge = (window as unknown as { ReactNativeWebView?: { postMessage: (m: string) => void } })
-    .ReactNativeWebView;
-  if (rnBridge?.postMessage) {
-    rnBridge.postMessage(message);
-  } else {
-    window.postMessage(message, "*");
-  }
+  return xumm;
 }
 
 /**
@@ -145,70 +94,63 @@ export function parseBootParams(): {
 }
 
 /**
- * Gives the host WebView bridge a brief tick to wire up message listeners
- * before we start posting. In the old `window.xumm` SDK model this was
- * awaiting the SDK's own ready Promise; with the raw postMessage protocol
- * there is nothing to wait for (both sides are listener-based), but we keep
- * a small delay so event handlers attached elsewhere in the app are up
- * before the first boot message round-trip.
+ * Waits for the Xaman native bridge to finish injecting the SDK + OTT into
+ * window.xumm. The CDN <script> in <head> runs and instantiates window.xumm
+ * synchronously before this module-type bundle executes, but we briefly poll
+ * to be robust against any boot-order jitter (this was the "window.xumm race"
+ * an earlier revision tried to avoid by abandoning the SDK — the correct fix
+ * is to await readiness, not to drop the SDK). Resolves as soon as the SDK's
+ * own `ready` promise resolves. Mounting session-dependent UI before this
+ * resolves is a bug — non-negotiable #5.
  */
 export async function waitForReady(): Promise<void> {
-  initBridge();
-  await new Promise((r) => setTimeout(r, 50));
+  for (let i = 0; i < 100 && !maybeXumm(); i++) {
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  const xumm = getXumm();
+  await xumm.ready;
 }
 
 /**
- * Tells Xaman the xApp has booted and the native loader should dismiss.
- * When the "Xaman Loader Screen" setting is enabled in apps.xaman.dev,
- * Xaman keeps its own spinner up until this message arrives. Must be
- * called once the xApp is in a state worth showing (successful session
- * OR a displayable error) — never swallow the ready signal.
- *
- * Fire-and-forget: Xaman replies with `{ method: "ready" }` but we don't
- * need to act on that. If the host doesn't reply within 2s we still
- * resolve — the loader dismiss is best-effort and UI state is already
- * in a render-worthy shape by the time this is called.
+ * Best-effort: ensure the SDK has booted so Xaman dismisses its native loader
+ * screen. The CDN SDK signals readiness to the host itself once initialized;
+ * we just await that here so a stuck loader never hides a render-worthy UI.
+ * Never throws — outside Xaman this simply no-ops.
  */
 export async function signalReady(): Promise<void> {
-  const ack = waitForReply("ready", 2000).catch(() => null);
-  sendCommand("ready");
-  await ack;
+  const xumm = maybeXumm();
+  if (!xumm) return;
+  await xumm.ready.catch(() => {});
 }
 
 /**
  * Closes the xApp WebView. Xaman tears down the native container and
- * optionally refreshes any subscribed events before returning to the
- * wallet's main surface.
+ * optionally refreshes any subscribed events before returning to the wallet.
  */
 export async function closeXapp(
   opts: { refreshEvents?: boolean } = {},
 ): Promise<void> {
-  sendCommand("close", opts);
-  // Best-effort wait for the host ack; Xaman tears down the WebView so we
-  // may never actually see it.
-  await waitForReply("close", 1500).catch(() => null);
+  await getXumm().xapp.close(opts);
 }
 
 /**
  * Opens an external URL in the device browser via the Xaman host. Used to hand
- * off to third-party flows (e.g. the MoonPay on-ramp widget) that must run
- * outside the xApp WebView. Fire-and-forget — the host does not ack.
+ * off to flows that must run outside the xApp WebView (MoonPay on-ramp) and to
+ * open the hosted Terms / Privacy / Support pages. Fire-and-forget; failures
+ * (e.g. running outside Xaman) are swallowed so the UI never crashes.
  */
 export function openBrowser(url: string): void {
-  sendCommand("openBrowser", { url });
+  const xumm = maybeXumm();
+  if (!xumm) return;
+  void xumm.xapp.openBrowser({ url }).catch(() => {});
 }
 
 /**
  * Opens a Xaman sign-request payload for the user to approve / reject.
- * The host replies with {method:"openSignRequest", signed, txid, ...}.
+ * Resolves with { signed, txid, reason, ... } when the user acts on it.
  */
 export async function openSignRequest(
   payloadUuid: string,
-  timeoutMs = 300_000,
 ): Promise<SignRequestResult> {
-  const pending = waitForReply("openSignRequest", timeoutMs);
-  sendCommand("openSignRequest", { uuid: payloadUuid });
-  const reply = (await pending) as { method: "openSignRequest" } & SignRequestResult;
-  const { method: _method, ...result } = reply;
-  return result as SignRequestResult;
+  return getXumm().xapp.openSignRequest({ uuid: payloadUuid });
 }
