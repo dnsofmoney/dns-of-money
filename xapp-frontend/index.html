@@ -6,15 +6,11 @@
     <meta name="color-scheme" content="light dark" />
     <title>DNS://Money</title>
     <!--
-      Xaman xApp SDK — CDN build, aware of the native WebView bridge on both
-      iOS and Android. This MUST be a plain <script> in <head> (not the npm
-      package, which is for Web3/browser OAuth flows) so window.xumm is
-      instantiated before the React bundle runs. It powers openSignRequest and
-      openBrowser; without it sign requests never reach the Requests tab and
-      external links never open. Non-negotiable per xaman-xapp-frontend skill.
-    -->
-    <script src="https://xumm.app/assets/cdn/xumm.min.js"></script>
-    <!--
+      The Xaman xApp SDK (xumm-xapp-sdk) is bundled via npm and imported in
+      src/xaman/sdk.ts — NOT loaded from a CDN here. The universal CDN
+      `xumm.min.js` only exposes window.Xumm (an OAuth2 constructor) and never
+      creates the xApp client we need, so it's intentionally absent.
+
       Apply xAppStyle CSS variables immediately from the ?xAppStyle= URL param.
       Runs before the JS bundle loads so loading/error states are never invisible
       on dark themes (DARK / MOONLIGHT / ROYAL). Xaman passes xAppStyle in the

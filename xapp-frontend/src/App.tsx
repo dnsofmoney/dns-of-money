@@ -366,14 +366,13 @@ function RegisterScreen() {
       settleRef.current = (signed, txid) => settle(signed, txid);
 
       logEvent("sign_opened", { alias: aliasName, payload_uuid: uuid });
+      // openSignRequest resolves via the xApp `payload` event (SIGNED/DECLINED,
+      // no txid). A signature is settled by the websocket below — which also
+      // carries the tx hash register needs — so here we only act on a decline,
+      // so the user isn't left waiting after rejecting in Xaman.
       openSignRequest(uuid)
-        .then((r) => settle(r.signed, r.signed ? r.txid : undefined, r.reason))
-        .catch(() => {
-          // Bridge timeout — leave the user on the signing screen with the
-          // fallback visible rather than bouncing them back to confirm.
-          logEvent("timeout", { alias: aliasName, payload_uuid: uuid });
-          if (!settled) setErrMsg(t("common.signTimedOut"));
-        });
+        .then((r) => { if (!r.signed) settle(false, undefined, r.reason); })
+        .catch(() => {});
 
       if (websocket_status) {
         const ws = new WebSocket(websocket_status);
@@ -492,8 +491,10 @@ function RegisterScreen() {
   function reopenSign() {
     if (!signCtx) return;
     logEvent("fallback_reopen", { payload_uuid: signCtx.uuid });
+    // Re-open over the bridge; a signature still settles via the websocket, so
+    // we only forward a decline here.
     openSignRequest(signCtx.uuid)
-      .then((r) => settleRef.current?.(r.signed, r.signed ? r.txid : undefined))
+      .then((r) => { if (!r.signed) settleRef.current?.(false, undefined); })
       .catch(() => {});
   }
 
@@ -939,12 +940,11 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
       settleRef.current = (signed, txid) => settle(signed, txid);
 
       logEvent("sign_opened", { alias: alias.trim(), payload_uuid: uuid });
+      // Signature (with txid) is settled by the websocket below; openSignRequest
+      // resolves via the xApp `payload` event, so we only act on a decline.
       openSignRequest(uuid)
-        .then((r) => settle(r.signed, r.txid, r.reason))
-        .catch(() => {
-          logEvent("timeout", { alias: alias.trim(), payload_uuid: uuid });
-          if (!settled) setErrMsg(t("common.signTimedOut"));
-        });
+        .then((r) => { if (!r.signed) settle(false, undefined, r.reason); })
+        .catch(() => {});
 
       if (websocket_status) {
         const ws = new WebSocket(websocket_status);
@@ -972,8 +972,9 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
   function reopenSign() {
     if (!signCtx) return;
     logEvent("fallback_reopen", { payload_uuid: signCtx.uuid });
+    // A signature still settles via the websocket; only forward a decline here.
     openSignRequest(signCtx.uuid)
-      .then((r) => settleRef.current?.(r.signed, r.signed ? r.txid : undefined))
+      .then((r) => { if (!r.signed) settleRef.current?.(false, undefined); })
       .catch(() => {});
   }
 

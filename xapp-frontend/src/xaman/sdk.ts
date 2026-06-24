@@ -1,77 +1,40 @@
-// Low-level wrapper around window.xumm — the official Xaman xApp SDK injected
-// by the CDN <script src="https://xumm.app/assets/cdn/xumm.min.js"> in
-// index.html. This is the ONLY file in the codebase allowed to touch
-// window.xumm directly; every other consumer goes through useXaman() or
-// imports the helpers below. Non-negotiable #1 per the xaman-xapp-frontend
-// skill.
+// Low-level wrapper around the official Xaman xApp SDK (`xumm-xapp-sdk`).
+// This is the ONLY file in the codebase allowed to touch the SDK directly;
+// every other consumer goes through useXaman() or the helpers below.
+// Non-negotiable #1 per the xaman-xapp-frontend skill.
 //
-// History / why this matters: a previous revision replaced this SDK with a
-// hand-rolled `window.postMessage` bridge ("speak the raw protocol"). Inside
-// the real Xaman WebView that bridge never reaches the host — the JSON command
-// envelopes it posted are not the channel Xaman listens on — so BOTH sign
-// requests (openSignRequest) and external links (openBrowser) silently did
-// nothing: no payload ever appeared in the Requests tab, and Terms/Privacy/
-// Support never opened. The supported, audited path is the CDN SDK's
-// `window.xumm.xapp.*` methods, which know the native bridge for both iOS
-// (WKWebView) and Android. We use them directly here.
+// Why the dedicated xApp SDK (not the universal CDN `xumm.min.js`, not a
+// hand-rolled postMessage bridge):
+//
+//   • The CDN `xumm.min.js` only exposes `window.Xumm` — a *constructor* for
+//     the OAuth2/Web3 SDK. It never auto-creates `window.xumm`, so any code
+//     reading `window.xumm` always failed with "xumm SDK not loaded". That was
+//     the real "window.xumm race".
+//   • A previous revision then hand-rolled the raw postMessage protocol. It
+//     posted the right `{command,...}` envelope, but skipped the timing logic
+//     the real bridge needs: the host WebView only accepts commands after a
+//     readiness gate + a minimum doc-alive window, and the bridge object
+//     (ReactNativeWebView) may attach a few hundred ms late. Posting a sign
+//     request immediately meant Xaman silently dropped it on devices where the
+//     WebView wasn't ready yet — "worked on my phone, dead on the reviewer's".
+//
+// `xumm-xapp-sdk` is purpose-built for running INSIDE the Xaman WebView: it
+// needs no API key (auth is the OTT/host), it waits for readiness, enforces
+// the min-alive stall, and retries the post — for iOS and Android (both are
+// React Native, so `ReactNativeWebView` is the bridge on both) and for the
+// xAppBuilder iframe. We bundle it via npm so there is no extra CDN origin to
+// allow-list and the version is pinned.
 
+import { xApp } from "xumm-xapp-sdk";
 import type { SignRequestResult } from "./types";
 
-declare global {
-  interface Window {
-    xumm?: XummSdk;
-  }
-}
-
-interface XummSdk {
-  on(
-    event: "ready" | "destination" | "qr",
-    handler: (...args: unknown[]) => void,
-  ): void;
-  ready: Promise<void>;
-  environment: {
-    jwt: Promise<string | undefined>;
-    ott: Promise<Record<string, unknown> | undefined>;
-    bearer: Promise<string | undefined>;
-  };
-  user: {
-    account: Promise<string | undefined>;
-  };
-  xapp: {
-    openSignRequest(opts: { uuid: string }): Promise<SignRequestResult>;
-    close(opts?: { refreshEvents?: boolean }): Promise<void>;
-    tx(opts: { tx: string }): Promise<void>;
-    scanQr(): Promise<{ reason?: string; qrContents?: string }>;
-    openBrowser(opts: { url: string }): Promise<void>;
-    navigate(opts: { xApp: string; destination?: string }): Promise<void>;
-    share(opts: { text?: string; url?: string }): Promise<void>;
-  };
-}
-
-/**
- * Returns the injected Xaman SDK, or null when it isn't present (e.g. the
- * dev server opened in a plain browser outside Xaman / xAppBuilder, where the
- * CDN script does not instantiate window.xumm). Callers that must have the SDK
- * use getXumm(); fire-and-forget helpers degrade gracefully on null.
- */
-function maybeXumm(): XummSdk | null {
-  return typeof window !== "undefined" && window.xumm ? window.xumm : null;
-}
-
-/**
- * Returns the injected Xaman SDK. Throws if the <script> tag in index.html
- * didn't load / instantiate (typical cause: running outside Xaman or
- * xAppBuilder).
- */
-export function getXumm(): XummSdk {
-  const xumm = maybeXumm();
-  if (!xumm) {
-    throw new Error(
-      'xumm SDK not loaded — check the <script src="https://xumm.app/assets/cdn/xumm.min.js"> ' +
-        "tag in index.html, and confirm you're running inside Xaman or xAppBuilder.",
-    );
-  }
-  return xumm;
+// Lazily constructed singleton. The constructor wires up the host message
+// listeners, so we only build it once and on the client (never during SSR /
+// the Vite build step).
+let instance: xApp | null = null;
+function sdk(): xApp {
+  if (!instance) instance = new xApp();
+  return instance;
 }
 
 /**
@@ -79,6 +42,9 @@ export function getXumm(): XummSdk {
  * - xAppToken: the OTT (one-time token), UUID format
  * - xAppStyle: LIGHT / DARK / MOONLIGHT / ROYAL
  * - xAppVersion: Xaman app version
+ *
+ * (The SDK also exposes the OTT via getEnvironment(), but we read it from the
+ * URL so the backend exchange stays independent of SDK boot order.)
  */
 export function parseBootParams(): {
   xAppToken: string | null;
@@ -94,33 +60,28 @@ export function parseBootParams(): {
 }
 
 /**
- * Waits for the Xaman native bridge to finish injecting the SDK + OTT into
- * window.xumm. The CDN <script> in <head> runs and instantiates window.xumm
- * synchronously before this module-type bundle executes, but we briefly poll
- * to be robust against any boot-order jitter (this was the "window.xumm race"
- * an earlier revision tried to avoid by abandoning the SDK — the correct fix
- * is to await readiness, not to drop the SDK). Resolves as soon as the SDK's
- * own `ready` promise resolves. Mounting session-dependent UI before this
- * resolves is a bug — non-negotiable #5.
+ * Constructs the SDK (attaching its host listeners) so it's ready before any
+ * UI that depends on the session renders. The SDK manages its own per-command
+ * readiness/retry, so there's nothing to await here beyond instantiation;
+ * mounting session-dependent UI still waits on the OTT exchange in the
+ * provider. Never throws — outside a host the listeners simply never fire.
  */
 export async function waitForReady(): Promise<void> {
-  for (let i = 0; i < 100 && !maybeXumm(); i++) {
-    await new Promise((r) => setTimeout(r, 20));
-  }
-  const xumm = getXumm();
-  await xumm.ready;
+  if (typeof window === "undefined") return;
+  sdk();
 }
 
 /**
- * Best-effort: ensure the SDK has booted so Xaman dismisses its native loader
- * screen. The CDN SDK signals readiness to the host itself once initialized;
- * we just await that here so a stuck loader never hides a render-worthy UI.
- * Never throws — outside Xaman this simply no-ops.
+ * Tells Xaman the xApp has booted so it dismisses its native loader screen.
+ * Best-effort: outside a host this is a no-op and never throws.
  */
 export async function signalReady(): Promise<void> {
-  const xumm = maybeXumm();
-  if (!xumm) return;
-  await xumm.ready.catch(() => {});
+  if (typeof window === "undefined") return;
+  try {
+    await sdk().ready();
+  } catch {
+    /* not in a host, or host didn't ack — loader dismiss is best-effort */
+  }
 }
 
 /**
@@ -130,27 +91,47 @@ export async function signalReady(): Promise<void> {
 export async function closeXapp(
   opts: { refreshEvents?: boolean } = {},
 ): Promise<void> {
-  await getXumm().xapp.close(opts);
+  await sdk().close(opts);
 }
 
 /**
- * Opens an external URL in the device browser via the Xaman host. Used to hand
- * off to flows that must run outside the xApp WebView (MoonPay on-ramp) and to
- * open the hosted Terms / Privacy / Support pages. Fire-and-forget; failures
- * (e.g. running outside Xaman) are swallowed so the UI never crashes.
+ * Opens an external URL in the device browser via the Xaman host. Used for the
+ * MoonPay on-ramp hand-off and the hosted Terms / Privacy / Support pages.
+ * Fire-and-forget; failures (e.g. running outside a host) are swallowed so the
+ * UI never crashes.
  */
 export function openBrowser(url: string): void {
-  const xumm = maybeXumm();
-  if (!xumm) return;
-  void xumm.xapp.openBrowser({ url }).catch(() => {});
+  try {
+    void sdk().openBrowser({ url });
+  } catch {
+    /* outside a host — no-op */
+  }
 }
 
 /**
- * Opens a Xaman sign-request payload for the user to approve / reject.
- * Resolves with { signed, txid, reason, ... } when the user acts on it.
+ * Opens a Xaman sign-request payload for the user to approve / reject, and
+ * resolves once the host reports the outcome via the `payload` event.
+ *
+ * Note: the xApp `payload` event carries only { reason: SIGNED|DECLINED, uuid }
+ * — there is NO txid here. Flows that need the on-ledger tx hash (register,
+ * send) read it from the payload websocket (`websocket_status`) instead; this
+ * promise is the authoritative signed/declined signal and also fires when the
+ * user signs via the deeplink fallback. Never rejects on a normal outcome.
  */
-export async function openSignRequest(
-  payloadUuid: string,
-): Promise<SignRequestResult> {
-  return getXumm().xapp.openSignRequest({ uuid: payloadUuid });
+export function openSignRequest(uuid: string): Promise<SignRequestResult> {
+  const s = sdk();
+  return new Promise<SignRequestResult>((resolve) => {
+    const handler = (data: { reason: "SIGNED" | "DECLINED"; uuid: string }) => {
+      // Ignore resolutions for any other in-flight payload.
+      if (data?.uuid && data.uuid !== uuid) return;
+      s.off("payload", handler);
+      resolve({
+        signed: data?.reason === "SIGNED",
+        payload_uuidv4: data?.uuid ?? uuid,
+        reason: data?.reason,
+      });
+    };
+    s.on("payload", handler);
+    void s.openSignRequest({ uuid });
+  });
 }
