@@ -95,16 +95,58 @@ export async function closeXapp(
 }
 
 /**
- * Opens an external URL in the device browser via the Xaman host. Used for the
- * MoonPay on-ramp hand-off and the hosted Terms / Privacy / Support pages.
- * Fire-and-forget; failures (e.g. running outside a host) are swallowed so the
- * UI never crashes.
+ * True when a Xaman host bridge is actually reachable from this WebView.
+ *
+ * The SDK can only deliver commands through `window.ReactNativeWebView` (the
+ * real Xaman app, iOS + Android) or `window.parent` (the xAppBuilder iframe).
+ * If neither exists the SDK burns 8 retries over ~2.3s and then RESOLVES an
+ * Error — it does not throw — so an unchecked call looks like "nothing
+ * happened". Callers use this to skip the SDK and fall back to a plain link.
  */
-export function openBrowser(url: string): void {
+export function isXappHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as { ReactNativeWebView?: unknown; parent?: unknown };
+  return !!w.ReactNativeWebView || (!!w.parent && w.parent !== window);
+}
+
+/**
+ * Snapshot of the host environment, for boot telemetry. Lets us see from the
+ * server which bridge (if any) a given device actually exposed — the difference
+ * between "worked on my phone" and "dead on the reviewer's".
+ */
+export function hostDiagnostics(): Record<string, string | boolean> {
+  const w = window as unknown as { ReactNativeWebView?: unknown; parent?: unknown };
+  let env: { version?: string; ott?: string } = {};
   try {
-    void sdk().openBrowser({ url });
+    env = sdk().getEnvironment() ?? {};
   } catch {
-    /* outside a host — no-op */
+    /* ignore */
+  }
+  return {
+    rnwv: !!w.ReactNativeWebView,
+    iframe: !!w.parent && w.parent !== window,
+    host: isXappHost(),
+    ver: env.version || "",
+    ua: (navigator.userAgent || "").slice(0, 120),
+  };
+}
+
+/**
+ * Asks the Xaman host to open an external URL in the device browser. Used for
+ * the MoonPay on-ramp hand-off, the hosted Terms / Privacy / Support pages, and
+ * the sign-request deeplink.
+ *
+ * Returns TRUE only when the host acknowledged the command. On a missing bridge
+ * the SDK resolves an Error after ~2.3s of retries, which we report as false so
+ * the caller can fall back to a plain navigation instead of doing nothing.
+ */
+export async function openBrowser(url: string): Promise<boolean> {
+  if (!isXappHost()) return false; // fail fast — don't burn 2.3s of retries
+  try {
+    const res = await Promise.resolve(sdk().openBrowser({ url }));
+    return res === true;
+  } catch {
+    return false;
   }
 }
 
@@ -119,6 +161,11 @@ export function openBrowser(url: string): void {
  * user signs via the deeplink fallback. Never rejects on a normal outcome.
  */
 export function openSignRequest(uuid: string): Promise<SignRequestResult> {
+  // No bridge → the SDK would retry for ~2.3s and then quietly resolve an
+  // Error. Reject now so the UI surfaces the deeplink fallback immediately.
+  if (!isXappHost()) {
+    return Promise.reject(new Error("No Xaman host bridge — cannot open sign request"));
+  }
   const s = sdk();
   return new Promise<SignRequestResult>((resolve, reject) => {
     const handler = (data: { reason: "SIGNED" | "DECLINED"; uuid: string }) => {

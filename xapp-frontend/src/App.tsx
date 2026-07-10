@@ -1,15 +1,26 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useXaman } from "./xaman/useXaman";
 import { ApiError, useApiClient } from "./api/client";
-import { openBrowser, openSignRequest } from "./xaman/sdk";
+import { openBrowser, openSignRequest, isXappHost, hostDiagnostics } from "./xaman/sdk";
 import { useT, useI18n, useXamanLocale, SUPPORTED, LOCALE_LABELS, type TFunc } from "./i18n";
+
+// Opens an external URL. Prefers the Xaman host so the user stays inside the
+// wallet's own browser. If no host bridge is reachable the SDK quietly fails
+// after ~2.3s of retries, so we fall back to a normal navigation — a link must
+// never be a dead tap. Components that render an <a href> let the native anchor
+// cover the no-host case and only intercept when a host is actually present.
+async function openExternal(url: string): Promise<void> {
+  if (await openBrowser(url)) return;
+  const w = window.open(url, "_blank", "noopener,noreferrer");
+  if (!w) window.location.href = url;
+}
 
 // ── Client telemetry ──────────────────────────────────────────────────────────
 // Best-effort POST of one sign-funnel event to the backend (POST /xapp/event).
 // Fire-and-forget: telemetry must never break or block the user flow, so every
 // failure is swallowed. Account/network are derived server-side from the JWT.
 type EventFields = { alias?: string; payload_uuid?: string; detail?: string };
-function useEventLogger(flow: "register" | "send" | "claim") {
+function useEventLogger(flow: "register" | "send" | "claim" | "boot") {
   const { request } = useApiClient();
   return useCallback(
     (event: string, extra?: EventFields) => {
@@ -44,6 +55,17 @@ export default function App() {
   // Apply the Xaman-reported locale once the session resolves (unless the user
   // has manually chosen a language). Hook runs unconditionally, before returns.
   useXamanLocale(session?.context.locale);
+
+  // Record which host bridge (if any) this device actually exposed. Without it
+  // a dead bridge is invisible server-side — it's the only way to tell "worked
+  // on my phone" from "dead on the reviewer's". Runs once per session.
+  const logBoot = useEventLogger("boot");
+  const bootLogged = useRef(false);
+  useEffect(() => {
+    if (!session || bootLogged.current) return;
+    bootLogged.current = true;
+    logBoot("host", { detail: JSON.stringify(hostDiagnostics()).slice(0, 500) });
+  }, [session, logBoot]);
 
   if (loading) return <Spinner />;
   if (error || !session) {
@@ -498,10 +520,14 @@ function RegisterScreen() {
     if (!signCtx) return;
     logEvent("fallback_reopen", { payload_uuid: signCtx.uuid });
     // Re-open over the bridge; a signature still settles via the websocket, so
-    // we only forward a decline here.
+    // we only forward a decline here. A dispatch failure (no host bridge) must
+    // say so — otherwise this button is another silent no-op.
     openSignRequest(signCtx.uuid)
       .then((r) => { if (!r.signed) settleRef.current?.(false, undefined); })
-      .catch(() => {});
+      .catch(() => {
+        logEvent("sign_open_failed", { payload_uuid: signCtx.uuid });
+        setErrMsg(t("common.signOpenFailed"));
+      });
   }
 
   function reopenClaim() {
@@ -509,7 +535,11 @@ function RegisterScreen() {
     logClaim("fallback_reopen", { payload_uuid: claimSignCtx.uuid });
     openSignRequest(claimSignCtx.uuid)
       .then((r) => { if (r.signed) setClaimPhase("claimed"); })
-      .catch(() => {});
+      .catch(() => {
+        logClaim("sign_open_failed", { payload_uuid: claimSignCtx.uuid });
+        setClaimErr(t("common.signOpenFailed"));
+        setClaimPhase("error");
+      });
   }
 
   if (walletChecking) {
@@ -626,7 +656,6 @@ function RegisterScreen() {
                   onReopen={reopenClaim}
                   onDeeplink={() => {
                     logClaim("fallback_deeplink", { payload_uuid: claimSignCtx.uuid });
-                    if (claimSignCtx.deeplink) openBrowser(claimSignCtx.deeplink);
                   }}
                 />
               )}
@@ -820,6 +849,12 @@ function RegisterScreen() {
           {phase === "registering" ? t("register.almostDone") : t("common.waitingSignature")}
         </p>
 
+        {/* A failed dispatch used to set errMsg that nothing rendered here, so the
+            screen just sat on "Waiting for signature…". Show it. */}
+        {errMsg && phase === "signing" && (
+          <p style={{ color: "var(--xapp-danger)", fontSize: "0.82em", margin: "14px 0 0", padding: "0 24px" }}>{errMsg}</p>
+        )}
+
         {phase === "signing" && signCtx && (
           <SignFallback
             uuid={signCtx.uuid}
@@ -827,7 +862,6 @@ function RegisterScreen() {
             onReopen={reopenSign}
             onDeeplink={() => {
               logEvent("fallback_deeplink", { payload_uuid: signCtx.uuid });
-              if (signCtx.deeplink) openBrowser(signCtx.deeplink);
             }}
           />
         )}
@@ -985,7 +1019,10 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
     // A signature still settles via the websocket; only forward a decline here.
     openSignRequest(signCtx.uuid)
       .then((r) => { if (!r.signed) settleRef.current?.(false, undefined); })
-      .catch(() => {});
+      .catch(() => {
+        logEvent("sign_open_failed", { payload_uuid: signCtx.uuid });
+        setErrMsg(t("common.signOpenFailed"));
+      });
   }
 
   const inputsReady = !!preview && !previewErr && parseFloat(amount) > 0;
@@ -1072,7 +1109,9 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
         </>
       )}
 
-      {phase === "error" && (
+      {/* Show errMsg whenever it's set — not only in the "error" phase — so a
+          failed sign-request dispatch during "signing" is visible. */}
+      {errMsg && (
         <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "10px 0 0" }}>{errMsg}</p>
       )}
 
@@ -1092,7 +1131,6 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
           onReopen={reopenSign}
           onDeeplink={() => {
             logEvent("fallback_deeplink", { payload_uuid: signCtx.uuid });
-            if (signCtx.deeplink) openBrowser(signCtx.deeplink);
           }}
         />
       )}
@@ -1298,7 +1336,7 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
             <Btn active onClick={() => onSend(sel.alias_name)} style={{ flex: 1 }}>
               {t("gallery.send")}
             </Btn>
-            <Btn onClick={() => openBrowser(sel.image_uri ? ipfsToHttp(sel.image_uri) : previewUrl(sel.alias_name))} style={{ flex: 1 }}>
+            <Btn onClick={() => void openExternal(sel.image_uri ? ipfsToHttp(sel.image_uri) : previewUrl(sel.alias_name))} style={{ flex: 1 }}>
               {t("gallery.openImage")}
             </Btn>
           </div>
@@ -1423,7 +1461,7 @@ function BuyScreen() {
         }),
       });
       if (!data?.url) throw new Error("No checkout URL returned");
-      openBrowser(data.url);
+      await openExternal(data.url);
       setPhase("opened");
     } catch (e) {
       const detail =
@@ -1557,12 +1595,24 @@ function SignFallback({ deeplink, onReopen, onDeeplink }: { uuid: string; deepli
       </p>
       <Btn active onClick={onReopen}>{t("sign.reopen")}</Btn>
       {deeplink && (
-        <button
-          onClick={() => (onDeeplink ? onDeeplink() : openBrowser(deeplink))}
+        // A real anchor: this is the LAST resort when the in-app bridge is dead,
+        // so it must not itself depend on the bridge. With a host we hand the
+        // deeplink to Xaman; without one the anchor navigates to xumm.app/sign/…
+        // and Xaman picks up the payload.
+        <a
+          href={deeplink}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            onDeeplink?.(); // telemetry
+            if (!isXappHost()) return; // let the anchor follow the href
+            e.preventDefault();
+            void openExternal(deeplink);
+          }}
           style={{ display: "block", width: "100%", marginTop: 10, padding: "8px", background: "none", border: "none", color: "var(--xapp-accent)", fontSize: "0.82em", cursor: "pointer" }}
         >
           {t("sign.openInXaman")}
-        </button>
+        </a>
       )}
     </div>
   );
@@ -1578,13 +1628,37 @@ function LegalFooter() {
     opacity: 0.7, fontSize: "0.72em", cursor: "pointer", padding: 4, textDecoration: "underline",
   };
   const dot = <span style={{ opacity: 0.3, fontSize: "0.7em" }}>·</span>;
+
+  // Real anchors, not buttons. Inside Xaman we intercept and hand the URL to
+  // the host so it opens in the wallet's browser; if no host bridge is present
+  // the anchor's own navigation still works. Previously these were buttons
+  // calling openBrowser(), so a missing bridge made all three links dead.
+  const Link = ({ path, label }: { path: string; label: string }) => {
+    const url = `${SITE}/${path}`;
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={linkStyle}
+        onClick={(e) => {
+          if (!isXappHost()) return; // let the browser follow the href
+          e.preventDefault();
+          void openExternal(url);
+        }}
+      >
+        {label}
+      </a>
+    );
+  };
+
   return (
     <footer style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, marginTop: 36, paddingTop: 16, borderTop: "1px solid var(--xapp-surface-muted)" }}>
-      <button style={linkStyle} onClick={() => openBrowser(`${SITE}/terms.html`)}>{t("legal.terms")}</button>
+      <Link path="terms.html" label={t("legal.terms")} />
       {dot}
-      <button style={linkStyle} onClick={() => openBrowser(`${SITE}/privacy.html`)}>{t("legal.privacy")}</button>
+      <Link path="privacy.html" label={t("legal.privacy")} />
       {dot}
-      <button style={linkStyle} onClick={() => openBrowser(`${SITE}/support.html`)}>{t("legal.support")}</button>
+      <Link path="support.html" label={t("legal.support")} />
     </footer>
   );
 }
