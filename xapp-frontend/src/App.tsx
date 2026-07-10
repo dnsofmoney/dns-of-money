@@ -372,7 +372,13 @@ function RegisterScreen() {
       // so the user isn't left waiting after rejecting in Xaman.
       openSignRequest(uuid)
         .then((r) => { if (!r.signed) settle(false, undefined, r.reason); })
-        .catch(() => {});
+        .catch(() => {
+          // The host refused the command (e.g. malformed payload uuid) — the
+          // payload event will never arrive. Say so instead of leaving the user
+          // on a silent spinner; the fallback buttons stay available.
+          logEvent("sign_open_failed", { alias: aliasName, payload_uuid: uuid });
+          if (!settled) setErrMsg(t("common.signOpenFailed"));
+        });
 
       if (websocket_status) {
         const ws = new WebSocket(websocket_status);
@@ -944,7 +950,11 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
       // resolves via the xApp `payload` event, so we only act on a decline.
       openSignRequest(uuid)
         .then((r) => { if (!r.signed) settle(false, undefined, r.reason); })
-        .catch(() => {});
+        .catch(() => {
+          // Host refused the command — no payload event will arrive.
+          logEvent("sign_open_failed", { alias: alias.trim(), payload_uuid: uuid });
+          if (!settled) setErrMsg(t("common.signOpenFailed"));
+        });
 
       if (websocket_status) {
         const ws = new WebSocket(websocket_status);

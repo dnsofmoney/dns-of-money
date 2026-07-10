@@ -120,9 +120,11 @@ export function openBrowser(url: string): void {
  */
 export function openSignRequest(uuid: string): Promise<SignRequestResult> {
   const s = sdk();
-  return new Promise<SignRequestResult>((resolve) => {
+  return new Promise<SignRequestResult>((resolve, reject) => {
     const handler = (data: { reason: "SIGNED" | "DECLINED"; uuid: string }) => {
-      // Ignore resolutions for any other in-flight payload.
+      // Ignore resolutions for any other in-flight payload. (The host delivers
+      // the event on both window and document, so this fires twice — `off`
+      // makes the second one a no-op.)
       if (data?.uuid && data.uuid !== uuid) return;
       s.off("payload", handler);
       resolve({
@@ -132,6 +134,22 @@ export function openSignRequest(uuid: string): Promise<SignRequestResult> {
       });
     };
     s.on("payload", handler);
-    void s.openSignRequest({ uuid });
+
+    // Dispatch the command. If the SDK refuses it — e.g. "Invalid payload UUID"
+    // for anything that isn't a v4 uuid — the `payload` event will NEVER fire,
+    // so without this the promise would hang and the user would sit on the
+    // signing screen forever. Reject instead so callers can surface an error.
+    const dispatched = s.openSignRequest({ uuid });
+    Promise.resolve(dispatched)
+      .then((res) => {
+        if (res instanceof Error) {
+          s.off("payload", handler);
+          reject(res);
+        }
+      })
+      .catch((err: unknown) => {
+        s.off("payload", handler);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
   });
 }

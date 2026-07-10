@@ -14,6 +14,7 @@ export const en = {
     waitingSignature: "Waiting for signature…",
     rejectedInXaman: "Rejected in Xaman",
     signTimedOut: "Sign request timed out",
+    signOpenFailed: "Couldn't open the sign request — try the options below.",
     serverError: "Server error {status}",
   },
 
