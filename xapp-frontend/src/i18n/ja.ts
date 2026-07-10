@@ -14,6 +14,7 @@ export const ja: Messages = {
     waitingSignature: "署名を待っています…",
     rejectedInXaman: "Xamanで拒否されました",
     signTimedOut: "署名リクエストがタイムアウトしました",
+    signOpenFailed: "署名リクエストを開けませんでした — 下の方法をお試しください。",
     serverError: "サーバーエラー {status}",
   },
 
