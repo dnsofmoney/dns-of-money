@@ -1,0 +1,31 @@
+{
+  "name": "@dnsofmoney/a2a-protocol-core",
+  "version": "0.1.0",
+  "description": "Open, deterministic protocol core for the DNS of Money A2A payment surface — pay: addressing, canonical hashing, semantic normalization, and a payment-hook client. TypeScript port of the Python a2a-protocol-core, with byte-identical canonical hashes.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsc -p tsconfig.test.json && node --test \"build/test/**/*.test.js\"",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["a2a", "payments", "ai-agents", "fas-1", "iso20022", "pay-uri", "xrpl"],
+  "license": "Apache-2.0",
+  "author": "DNS of Money",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dnsofmoney/dns-of-money.git",
+    "directory": "sdk/a2a-protocol-core"
+  },
+  "homepage": "https://dnsofmoney.com"
+}
