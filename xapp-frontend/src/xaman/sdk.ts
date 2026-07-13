@@ -60,6 +60,46 @@ function sdk(): xApp {
   return instance;
 }
 
+// Post a command envelope directly to the host, preferring the channel that is
+// PROVEN to open sign requests in this sandboxed xApp.
+//
+// History (from the payload log): on 2026-06-21 the hand-rolled bridge dispatched
+// via `window.ReactNativeWebView.postMessage` and sign requests OPENED + SIGNED.
+// After switching to the official SDK, the SDK — on a *sandboxed* xApp — routes
+// commands to `window.parent` (its proxy) after an ACK handshake, and that path
+// stopped surfacing the sheet (payloads created but never "Opened"). So for the
+// actual dispatch we bypass the SDK's channel choice and hit ReactNativeWebView
+// first (the real Xaman app, iOS + Android), falling back to the parent proxy
+// only when there is no ReactNativeWebView (e.g. an iframe-only context). We
+// still keep the SDK instance for its inbound `payload` event + diagnostics.
+//
+// The wire format matches the SDK's exactly: JSON `{command, ...args}`.
+function postDirect(command: string, args: Record<string, unknown> = {}): boolean {
+  if (typeof window === "undefined") return false;
+  const msg = JSON.stringify({ command, ...args });
+  const w = window as unknown as {
+    ReactNativeWebView?: { postMessage?: (m: string) => void };
+    parent?: { postMessage?: (m: string, targetOrigin: string) => void };
+  };
+  try {
+    if (w.ReactNativeWebView?.postMessage) {
+      w.ReactNativeWebView.postMessage(msg);
+      return true;
+    }
+  } catch {
+    /* fall through to the parent channel */
+  }
+  try {
+    if (w.parent && w.parent !== window && w.parent.postMessage) {
+      w.parent.postMessage(msg, "*");
+      return true;
+    }
+  } catch {
+    /* no channel available */
+  }
+  return false;
+}
+
 /**
  * Parses the boot query params Xaman passes when launching the xApp.
  * - xAppToken: the OTT (one-time token), UUID format
@@ -100,11 +140,10 @@ export async function waitForReady(): Promise<void> {
  */
 export async function signalReady(): Promise<void> {
   if (typeof window === "undefined") return;
-  try {
-    await sdk().ready();
-  } catch {
-    /* not in a host, or host didn't ack — loader dismiss is best-effort */
-  }
+  sdk(); // ensure the inbound listener + proxy-ACK probe are installed
+  // Dismiss the native loader over the proven channel (not the SDK's sandbox
+  // proxy path). Best-effort — outside a host this simply no-ops.
+  postDirect("ready");
 }
 
 /**
@@ -114,7 +153,7 @@ export async function signalReady(): Promise<void> {
 export async function closeXapp(
   opts: { refreshEvents?: boolean } = {},
 ): Promise<void> {
-  await sdk().close(opts);
+  postDirect("close", opts);
 }
 
 /**
@@ -169,13 +208,9 @@ export function hostDiagnostics(): Record<string, string | boolean> {
  * the caller can fall back to a plain navigation instead of doing nothing.
  */
 export async function openBrowser(url: string): Promise<boolean> {
-  if (!isXappHost()) return false; // fail fast — don't burn 2.3s of retries
-  try {
-    const res = await Promise.resolve(sdk().openBrowser({ url }));
-    return res === true;
-  } catch {
-    return false;
-  }
+  // Dispatch on the proven channel (ReactNativeWebView first), NOT the SDK's
+  // sandbox parent-proxy path. Returns whether a host channel was available.
+  return postDirect("openBrowser", { url });
 }
 
 /**
@@ -212,28 +247,18 @@ export function openSignRequest(
         reason: data?.reason,
       });
     };
+    // Keep the SDK's inbound listener for the resolution event (payloadResolved),
+    // which fires regardless of how the command was dispatched…
     s.on("payload", handler);
 
-    // Dispatch the command. The SDK resolves `true` once the host acknowledged
-    // it (the sheet should now be open) or an Error after exhausting its retry
-    // window (host never accepted the command — the reviewer's "nothing
-    // happens"). onDispatch reports which, so the funnel shows whether the
-    // command actually reached the host vs the user simply not signing.
-    const dispatched = s.openSignRequest({ uuid });
-    Promise.resolve(dispatched)
-      .then((res) => {
-        if (res instanceof Error) {
-          onDispatch?.("failed");
-          s.off("payload", handler);
-          reject(res);
-        } else {
-          onDispatch?.("ok");
-        }
-      })
-      .catch((err: unknown) => {
-        onDispatch?.("failed");
-        s.off("payload", handler);
-        reject(err instanceof Error ? err : new Error(String(err)));
-      });
+    // …but DISPATCH via the proven ReactNativeWebView channel, not the SDK's
+    // sandbox parent-proxy path that failed to open the sheet. If no host
+    // channel exists, reject now so the UI surfaces the deeplink fallback.
+    const sent = postDirect("openSignRequest", { uuid });
+    onDispatch?.(sent ? "ok" : "failed");
+    if (!sent) {
+      s.off("payload", handler);
+      reject(new Error("No Xaman host channel to post the sign request"));
+    }
   });
 }
