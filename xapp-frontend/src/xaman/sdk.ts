@@ -28,12 +28,35 @@
 import { xApp } from "xumm-xapp-sdk";
 import type { SignRequestResult } from "./types";
 
+// Did the Xaman SANDBOX proxy complete its handshake? The SDK posts
+// "XAPP_PROXY_INIT" to window.parent on construction and only routes commands
+// through the parent proxy AFTER the parent replies "XAPP_PROXY_INIT_ACK". For
+// a sandboxed xApp that ACK is the difference between commands relaying and
+// being silently dropped, so we watch for it independently and report it in
+// boot telemetry. (Production/live xApps use ReactNativeWebView and never need
+// this — proxyAck stays false there, which is fine.)
+let proxyAckSeen = false;
+function installProxyAckProbe(): void {
+  if (typeof window === "undefined") return;
+  const onMsg = (ev: MessageEvent): void => {
+    if (ev && ev.data === "XAPP_PROXY_INIT_ACK") proxyAckSeen = true;
+  };
+  window.addEventListener("message", onMsg);
+  // Android delivers host messages on document.
+  document.addEventListener("message", onMsg as EventListener);
+}
+
 // Lazily constructed singleton. The constructor wires up the host message
 // listeners, so we only build it once and on the client (never during SSR /
 // the Vite build step).
 let instance: xApp | null = null;
 function sdk(): xApp {
-  if (!instance) instance = new xApp();
+  if (!instance) {
+    // Install our ACK probe BEFORE constructing the SDK so we don't miss the
+    // handshake reply that the SDK's own init triggers.
+    installProxyAckProbe();
+    instance = new xApp();
+  }
   return instance;
 }
 
@@ -126,6 +149,11 @@ export function hostDiagnostics(): Record<string, string | boolean> {
     rnwv: !!w.ReactNativeWebView,
     iframe: !!w.parent && w.parent !== window,
     host: isXappHost(),
+    // The single most important signal for a sandboxed xApp: did the parent
+    // proxy ACK the handshake? If false in a sandbox, commands (sign/browser)
+    // won't relay — this is what tells us WHY the reviewer sees nothing.
+    proxyAck: proxyAckSeen,
+    ott: !!env.ott,
     ver: env.version || "",
     ua: (navigator.userAgent || "").slice(0, 120),
   };
@@ -160,10 +188,14 @@ export async function openBrowser(url: string): Promise<boolean> {
  * promise is the authoritative signed/declined signal and also fires when the
  * user signs via the deeplink fallback. Never rejects on a normal outcome.
  */
-export function openSignRequest(uuid: string): Promise<SignRequestResult> {
+export function openSignRequest(
+  uuid: string,
+  onDispatch?: (result: "ok" | "failed") => void,
+): Promise<SignRequestResult> {
   // No bridge → the SDK would retry for ~2.3s and then quietly resolve an
   // Error. Reject now so the UI surfaces the deeplink fallback immediately.
   if (!isXappHost()) {
+    onDispatch?.("failed");
     return Promise.reject(new Error("No Xaman host bridge — cannot open sign request"));
   }
   const s = sdk();
@@ -182,19 +214,24 @@ export function openSignRequest(uuid: string): Promise<SignRequestResult> {
     };
     s.on("payload", handler);
 
-    // Dispatch the command. If the SDK refuses it — e.g. "Invalid payload UUID"
-    // for anything that isn't a v4 uuid — the `payload` event will NEVER fire,
-    // so without this the promise would hang and the user would sit on the
-    // signing screen forever. Reject instead so callers can surface an error.
+    // Dispatch the command. The SDK resolves `true` once the host acknowledged
+    // it (the sheet should now be open) or an Error after exhausting its retry
+    // window (host never accepted the command — the reviewer's "nothing
+    // happens"). onDispatch reports which, so the funnel shows whether the
+    // command actually reached the host vs the user simply not signing.
     const dispatched = s.openSignRequest({ uuid });
     Promise.resolve(dispatched)
       .then((res) => {
         if (res instanceof Error) {
+          onDispatch?.("failed");
           s.off("payload", handler);
           reject(res);
+        } else {
+          onDispatch?.("ok");
         }
       })
       .catch((err: unknown) => {
+        onDispatch?.("failed");
         s.off("payload", handler);
         reject(err instanceof Error ? err : new Error(String(err)));
       });

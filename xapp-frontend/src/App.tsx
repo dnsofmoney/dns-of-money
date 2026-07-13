@@ -4,15 +4,21 @@ import { ApiError, useApiClient } from "./api/client";
 import { openBrowser, openSignRequest, isXappHost, hostDiagnostics } from "./xaman/sdk";
 import { useT, useI18n, useXamanLocale, SUPPORTED, LOCALE_LABELS, type TFunc } from "./i18n";
 
-// Opens an external URL. Prefers the Xaman host so the user stays inside the
-// wallet's own browser. If no host bridge is reachable the SDK quietly fails
-// after ~2.3s of retries, so we fall back to a normal navigation — a link must
-// never be a dead tap. Components that render an <a href> let the native anchor
-// cover the no-host case and only intercept when a host is actually present.
+// Opens an external URL WITHOUT ever navigating the xApp's own WebView away.
+//
+// Critical: inside Xaman the xApp runs in a WebView whose URL carries a
+// one-time OTT. If we navigate that WebView to an external page (what
+// `window.location.href = url` did before), returning to the xApp reloads it
+// with an already-consumed OTT → the error screen the reviewer reported. So:
+//   - Inside a host: hand the URL to Xaman via openBrowser. If that fails, do
+//     NOTHING destructive — never replace the xApp.
+//   - Outside a host (local dev / plain browser only): open a new tab.
 async function openExternal(url: string): Promise<void> {
-  if (await openBrowser(url)) return;
-  const w = window.open(url, "_blank", "noopener,noreferrer");
-  if (!w) window.location.href = url;
+  if (isXappHost()) {
+    await openBrowser(url); // host opens it in the device browser; xApp stays put
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 // ── Client telemetry ──────────────────────────────────────────────────────────
@@ -64,7 +70,13 @@ export default function App() {
   useEffect(() => {
     if (!session || bootLogged.current) return;
     bootLogged.current = true;
-    logBoot("host", { detail: JSON.stringify(hostDiagnostics()).slice(0, 500) });
+    // Wait ~2.5s so the sandbox XAPP_PROXY_INIT→ACK handshake has time to land
+    // before we snapshot it — `proxyAck` is the signal that tells us whether
+    // sign/browser commands can relay in a sandboxed xApp.
+    const id = setTimeout(() => {
+      logBoot("host", { detail: JSON.stringify(hostDiagnostics()).slice(0, 500) });
+    }, 2500);
+    return () => clearTimeout(id);
   }, [session, logBoot]);
 
   if (loading) return <Spinner />;
@@ -391,11 +403,18 @@ function RegisterScreen() {
       // openSignRequest resolves via the xApp `payload` event (SIGNED/DECLINED,
       // no txid). A signature is settled by the websocket below — which also
       // carries the tx hash register needs — so here we only act on a decline,
-      // so the user isn't left waiting after rejecting in Xaman.
-      openSignRequest(uuid)
+      // so the user isn't left waiting after rejecting in Xaman. onDispatch logs
+      // whether the host actually accepted the openSignRequest command — the
+      // key signal for diagnosing "tapped, but nothing opened".
+      openSignRequest(uuid, (d) =>
+        logEvent(d === "ok" ? "sign_dispatched" : "sign_dispatch_failed", {
+          alias: aliasName,
+          payload_uuid: uuid,
+        }),
+      )
         .then((r) => { if (!r.signed) settle(false, undefined, r.reason); })
         .catch(() => {
-          // The host refused the command (e.g. malformed payload uuid) — the
+          // The host refused the command (no bridge, or malformed uuid) — the
           // payload event will never arrive. Say so instead of leaving the user
           // on a silent spinner; the fallback buttons stay available.
           logEvent("sign_open_failed", { alias: aliasName, payload_uuid: uuid });

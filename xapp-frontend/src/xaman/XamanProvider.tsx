@@ -44,6 +44,39 @@ const XamanContext = createContext<XamanContextValue | null>(null);
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
+// ── Session cache (survives WebView reloads within one xApp session) ────────
+// sessionStorage is per-tab/WebView and is cleared when Xaman tears the xApp
+// down, so a cached JWT can never leak into a different launch. Keyed by the
+// OTT so a genuinely new launch (new OTT) always does a fresh exchange; a
+// `last` pointer covers reloads that arrive without the token in the URL.
+const SESSION_KEY_PREFIX = "xapp.session.";
+const SESSION_LAST_KEY = "xapp.session.last";
+
+function readCachedSession(xAppToken: string | null): XamanSession | null {
+  try {
+    const key = xAppToken
+      ? SESSION_KEY_PREFIX + xAppToken
+      : sessionStorage.getItem(SESSION_LAST_KEY);
+    if (!key) return null;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as XamanSession;
+    return parsed?.jwt && parsed?.context ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedSession(xAppToken: string, session: XamanSession): void {
+  try {
+    const key = SESSION_KEY_PREFIX + xAppToken;
+    sessionStorage.setItem(key, JSON.stringify(session));
+    sessionStorage.setItem(SESSION_LAST_KEY, key);
+  } catch {
+    /* storage disabled — caching is best-effort */
+  }
+}
+
 interface Props {
   children: ReactNode;
 }
@@ -64,6 +97,25 @@ export function XamanProvider({ children }: Props) {
         await waitForReady();
 
         const { xAppToken } = parseBootParams();
+
+        // 1a. Reuse a cached session if we have one. The OTT is ONE-TIME: if the
+        //     WebView reloads (e.g. after returning from an external browser
+        //     opened for Terms/Privacy/Support), re-POSTing the now-consumed OTT
+        //     fails and shows an error screen — exactly the reviewer's
+        //     "error when navigating back". So after the first successful
+        //     exchange we stash {jwt, context} in sessionStorage (per-WebView,
+        //     cleared when Xaman tears the xApp down) and reuse it on reload,
+        //     keyed by the OTT when present, with a last-session fallback for
+        //     reloads that arrive without the token in the URL.
+        const cached = readCachedSession(xAppToken);
+        if (cached) {
+          if (!cancelled) {
+            setSession(cached);
+            applyXappStyle(cached.context.style);
+          }
+          return;
+        }
+
         if (!xAppToken) {
           throw new Error(
             "Missing xAppToken query param — is this running inside Xaman or xAppBuilder?",
@@ -114,11 +166,13 @@ export function XamanProvider({ children }: Props) {
 
         if (cancelled) return;
 
-        setSession({
+        const newSession: XamanSession = {
           ott: xAppToken,
           jwt: data.jwt,
           context: data.context,
-        });
+        };
+        writeCachedSession(xAppToken, newSession);
+        setSession(newSession);
 
         // 3. Apply the xAppStyle → CSS vars. Done once; style doesn't change
         //    mid-session in Xaman's current design.
