@@ -30,6 +30,59 @@ export {
   type A2ACapabilities,
 } from "./schemas";
 
-export { A2APaymentHookClient, type ClientOptions, type TriggerParams } from "./client";
+export { A2APaymentHookClient, A2AClientError, type ClientOptions, type TriggerParams } from "./client";
 
-export const VERSION = "0.1.0";
+export {
+  DEFAULT_XRPL_WSS,
+  X402PayError,
+  decodePaymentRequired,
+  buildXPaymentHeader,
+  invoiceIdHash,
+  invoiceFieldsFromRequirement,
+  summarizeAttestation,
+  fetchRequirement,
+  fetchRequirementHeader,
+  payAliasXrp,
+  attestSettledPayment,
+  buildAvmPaymentHeader,
+  payAliasUsdcAlgorand,
+  payAlias,
+  signAndSubmitXrpViaXrpl,
+  type AttestationSummary,
+  type X402PaymentResult,
+  type SignAndSubmitXrp,
+  type SignAndSubmitXrpArgs,
+  type BuildPaymentHeader,
+  type AvmSignerOptions,
+  type PayAliasXrpOptions,
+  type PayAliasUsdcAlgorandOptions,
+  type PayAliasOptions,
+} from "./x402Pay";
+
+export {
+  screen,
+  screenWithPaymentHeader,
+  fetchScreenRequirementHeader,
+  screenUrl,
+  type ScreenResult,
+  type ScreenOptions,
+  type ScreenWithPaymentHeaderOptions,
+} from "./screen";
+
+export {
+  CRYPTOSUITE,
+  AttestationVerificationError,
+  verifyAttestation,
+  fetchDidDocument,
+  didWebDocumentUrl,
+  jcsCanonicalize,
+  base58btcDecode,
+  publicKeyBytesFromMultibase,
+  resolveAssertionKeyBytes,
+  type AttestationVerification,
+  type VerifyAttestationOptions,
+} from "./attestationVerify";
+
+export { getWithRetries, RETRYABLE_STATUS, type GetWithRetriesOptions } from "./_retry";
+
+export const VERSION = "0.3.0";
