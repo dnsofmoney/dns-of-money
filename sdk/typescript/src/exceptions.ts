@@ -47,10 +47,10 @@ export class RateLimitError extends DNSOfMoneyError {
   }
 }
 
-/** Raised when the founding tier cap (500) has been reached. */
+/** Raised when the founding tier cap (600) has been reached. */
 export class CapReachedError extends DNSOfMoneyError {
   constructor() {
-    super("Founding tier cap reached (500/500)", 409);
+    super("Founding tier cap reached (600/600)", 409);
     this.name = "CapReachedError";
   }
 }

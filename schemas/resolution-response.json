@@ -70,7 +70,7 @@
         "tier": {
           "type": "string",
           "enum": ["founding", "standard", "enterprise"],
-          "description": "Registration tier. Founding = first 500 names at 5 XRP."
+          "description": "Registration tier. Founding = first 600 names, graduated 0→5 XRP."
         }
       }
     },

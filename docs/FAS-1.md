@@ -263,7 +263,7 @@ All five checks must pass before a registration is committed:
 1. **FAS-1 format** — alias passes syntax validation per Section 2
 2. **Availability** — alias is not `taken` or `reserved`
 3. **Payment verification** — `payment_tx_hash` is a validated XRPL transaction of the correct fee to the registry wallet from `xrpl_address`
-4. **Cap check** — founding tier count < 500 (atomic `SELECT FOR UPDATE`)
+4. **Cap check** — founding tier count < 600 (atomic `SELECT FOR UPDATE`)
 5. **Wallet uniqueness** — `xrpl_address` has not already registered a founding tier name
 
 Failure of any check returns immediately with the specific error code. No partial writes occur.
@@ -290,8 +290,8 @@ No authentication required. Returns one of three states:
 
 | Parameter | Value |
 |---|---|
-| Total founding slots | 500 |
-| Fee | 5 XRP (flat) |
+| Total founding slots | 600 |
+| Fee | Graduated by claim order (see live `/api/v1/founding/status`) |
 | Names per wallet | 1 |
 | Grandfathering | Permanent — founding tier is encoded on-chain and cannot be revoked |
 | Anchor | XRPL mainnet memo TX |
@@ -322,7 +322,7 @@ Every founding tier registration is anchored on XRPL mainnet via a 1-drop paymen
 | `a` | The `pay:` alias being registered |
 | `w` | Registrant XRPL wallet address |
 | `ts` | ISO 8601 timestamp of registration |
-| `n` | Sequence number within the founding cohort (1–500) |
+| `n` | Sequence number within the founding cohort (1–600) |
 
 **XRPL Memo encoding:**
 
@@ -452,7 +452,7 @@ The registry MUST verify XRPL payment TX hashes on-chain before committing any r
 
 ### 10.2 Founding Cap Atomicity
 
-The 500-name founding cap MUST be enforced with a `SELECT ... FOR UPDATE` inside the same transaction as the INSERT. Cap check and INSERT in separate transactions create a race condition that would allow cap overflow.
+The 600-name founding cap MUST be enforced with a `SELECT ... FOR UPDATE` inside the same transaction as the INSERT. Cap check and INSERT in separate transactions create a race condition that would allow cap overflow.
 
 ### 10.3 Wallet Uniqueness
 

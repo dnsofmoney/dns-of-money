@@ -42,7 +42,7 @@ class RateLimitError(DNSOfMoneyError):
 
 
 class CapReachedError(DNSOfMoneyError):
-    """Raised when the founding tier cap (500) has been reached."""
+    """Raised when the founding tier cap (600) has been reached."""
 
     def __init__(self):
-        super().__init__("Founding tier cap reached (500/500)", status_code=409)
+        super().__init__("Founding tier cap reached (600/600)", status_code=409)

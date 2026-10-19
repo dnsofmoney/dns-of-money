@@ -10,8 +10,8 @@ Before registering, you need:
   2. A valid FAS-1 alias name (e.g., "pay:yourcompany.payments")
   3. At least one payment endpoint (routing number, XRPL address, etc.)
 
-For founding tier registration (first 500 names at 5 XRP):
-  - You also need an XRPL wallet address and a verified 5 XRP payment TX hash.
+For founding tier registration (first 600 names, graduated 0→5 XRP):
+  - You also need an XRPL wallet address and a verified payment TX hash at the current band price.
 
 Requirements:
     pip install requests
