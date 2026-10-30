@@ -273,6 +273,9 @@ function RegisterScreen() {
   const [existingAlias, setExistingAlias] = useState<string | null>(null);
   const [mintStatus, setMintStatus] = useState("registered");
   const [statusCheckN, setStatusCheckN] = useState(0);
+  // Depend on this flag, not on every status string, so each status change
+  // does not start another request.
+  const mintFinished = mintStatus === "complete" || mintStatus.endsWith("_failed");
   const [nftImageUri, setNftImageUri] = useState<string | null>(null);
   const [nftReady, setNftReady] = useState(false);
   const [claimPhase, setClaimPhase] = useState<ClaimPhase>("idle");
@@ -309,7 +312,7 @@ function RegisterScreen() {
   // claim (or a terminal state). Stops on "complete" / *_failed.
   useEffect(() => {
     if (phase !== "done" || !mintedAlias) return;
-    if (mintStatus === "complete" || mintStatus.endsWith("_failed")) return;
+    if (mintFinished) return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -342,7 +345,7 @@ function RegisterScreen() {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [phase, mintedAlias, mintStatus, apiBase, statusCheckN]);
+  }, [phase, mintedAlias, mintFinished, apiBase, statusCheckN]);
 
   function onNameChange(value: string) {
     const stripped = value.replace(/^pay:/i, "").toLowerCase();
