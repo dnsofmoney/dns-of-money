@@ -83,7 +83,7 @@ export default function App() {
   if (error || !session) {
     return (
       <CenteredMsg>
-        <p style={{ color: "var(--xapp-danger)", fontSize: "0.9em", margin: 0 }}>
+        <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: 0 }}>
           {error ?? t("common.sessionUnavailable")}
         </p>
       </CenteredMsg>
@@ -126,11 +126,11 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
             padding: "12px 0 16px",
             background: "none",
             border: "none",
-            color: screen === s ? "var(--xapp-accent)" : "var(--xapp-text)",
-            fontSize: "0.8em",
+            color: screen === s ? "var(--xapp-accent)" : "var(--xapp-text-muted)",
+            fontSize: "0.875em",
             fontWeight: screen === s ? 700 : 400,
             cursor: "pointer",
-            opacity: screen === s ? 1 : 0.5,
+            opacity: 1,
             transition: "color 0.15s, opacity 0.15s",
           }}
         >
@@ -166,7 +166,7 @@ function StepBar({ current }: { current: 1 | 2 | 3 }) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "0.78em",
+                    fontSize: "0.875em",
                     fontWeight: 700,
                     opacity: done || active ? 1 : 0.4,
                     transition: "background 0.2s",
@@ -176,7 +176,7 @@ function StepBar({ current }: { current: 1 | 2 | 3 }) {
                 </div>
                 <span
                   style={{
-                    fontSize: "0.75em",
+                    fontSize: "0.875em",
                     marginTop: 4,
                     color: active ? undefined : "var(--xapp-text-muted)",
                     opacity: active ? 0.9 : 0.85,
@@ -328,11 +328,29 @@ function RegisterScreen() {
         /* transient — keep polling */
       }
     };
-    const id = setInterval(tick, 5000);
-    tick();
+    // Status is not a Xaman payload, so there is no websocket for it. Keep the
+    // request count low: back off from 5s to 30s, and pause while hidden.
+    let delay = 5000;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const loop = async () => {
+      if (cancelled) return;
+      if (!document.hidden) await tick();
+      delay = Math.min(delay * 1.5, 30000);
+      if (!cancelled) timer = setTimeout(loop, delay);
+    };
+    const onVisible = () => {
+      if (!document.hidden && !cancelled) {
+        if (timer) clearTimeout(timer);
+        delay = 5000;
+        void loop();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    void loop();
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [phase, mintedAlias, mintStatus, apiBase]);
 
@@ -598,7 +616,7 @@ function RegisterScreen() {
           >
             {existingAlias}
           </code>
-          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.82em", margin: 0, padding: "0 24px", lineHeight: 1.5 }}>
+          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: 0, padding: "0 24px", lineHeight: 1.5 }}>
             {t("register.oneAliasPerWallet")}
           </p>
         </div>
@@ -628,7 +646,7 @@ function RegisterScreen() {
             ✓
           </div>
           <h2 style={{ margin: "0 0 6px", fontSize: "1.4em" }}>{t("register.doneTitle")}</h2>
-          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 20px" }}>{t("register.doneSubtitle")}</p>
+          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 20px" }}>{t("register.doneSubtitle")}</p>
           <code
             style={{
               display: "block",
@@ -657,12 +675,12 @@ function RegisterScreen() {
           )}
 
           {claimPhase === "claimed" ? (
-            <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "0.9em", margin: "0 0 28px", padding: "0 24px" }}>
+            <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "1em", margin: "0 0 28px", padding: "0 24px" }}>
               {t("register.nftClaimed")}
             </p>
           ) : nftReady ? (
             <div style={{ margin: "0 0 28px" }}>
-              <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.8em", margin: "0 0 14px", padding: "0 24px", lineHeight: 1.5 }}>
+              <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 14px", padding: "0 24px", lineHeight: 1.5 }}>
                 {t("register.nftReadyHint")}
               </p>
               <Btn onClick={claimNft} active disabled={claimPhase === "claiming"}>
@@ -679,18 +697,18 @@ function RegisterScreen() {
                 />
               )}
               {claimPhase === "error" && (
-                <p style={{ color: "var(--xapp-danger)", fontSize: "0.82em", margin: "10px 0 0" }}>{claimErr}</p>
+                <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "10px 0 0" }}>{claimErr}</p>
               )}
             </div>
           ) : mintStatus.endsWith("_failed") ? (
-            <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.8em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
+            <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
               {t("register.mintRetrying")}
             </p>
           ) : (
-            <p style={{ opacity: 0.55, fontSize: "0.82em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
+            <p style={{ color: "var(--xapp-text-muted)", fontSize: "1em", margin: "0 0 28px", padding: "0 24px", lineHeight: 1.5 }}>
               {mintStatusLabel(t, mintStatus)}
               <br />
-              <span style={{ opacity: 0.6 }}>{t("register.mintTakesAMinute")}</span>
+              <span style={{ color: "var(--xapp-text-muted)" }}>{t("register.mintTakesAMinute")}</span>
             </p>
           )}
 
@@ -709,7 +727,7 @@ function RegisterScreen() {
         <StepBar current={1} />
 
         <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("register.step1Title")}</h2>
-        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 24px" }}>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 24px" }}>
           {t("register.step1Subtitle")}
         </p>
 
@@ -720,7 +738,7 @@ function RegisterScreen() {
               left: 14,
               top: "50%",
               transform: "translateY(-50%)",
-              opacity: 0.4,
+              color: "var(--xapp-text-muted)",
               fontSize: "1em",
               pointerEvents: "none",
               userSelect: "none",
@@ -743,7 +761,7 @@ function RegisterScreen() {
         {avail !== "idle" && (
           <p
             style={{
-              fontSize: "0.85em",
+              fontSize: "1em",
               margin: "8px 0 0",
               color: avail === "available" ? "var(--xapp-accent)" : avail === "checking" ? "inherit" : "var(--xapp-danger)",
               opacity: avail === "checking" ? 0.5 : 1,
@@ -778,7 +796,7 @@ function RegisterScreen() {
         <StepBar current={2} />
 
         <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("register.step2Title")}</h2>
-        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 24px" }}>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 24px" }}>
           {t("register.step2Subtitle")}
         </p>
 
@@ -788,7 +806,7 @@ function RegisterScreen() {
             border: "1px solid var(--xapp-border)",
             borderRadius: 12,
             padding: "16px",
-            fontSize: "0.9em",
+            fontSize: "1em",
           }}
         >
           <Row label={t("register.rowAlias")} value={`pay:${name}`} />
@@ -799,7 +817,7 @@ function RegisterScreen() {
         </div>
 
         {phase === "error" && (
-          <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "12px 0 0" }}>
+          <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "12px 0 0" }}>
             {errMsg}
           </p>
         )}
@@ -823,8 +841,8 @@ function RegisterScreen() {
             background: "none",
             border: "none",
             color: "var(--xapp-text)",
-            opacity: 0.4,
-            fontSize: "0.85em",
+            minHeight: 40,
+            fontSize: "1em",
             cursor: "pointer",
           }}
         >
@@ -859,19 +877,19 @@ function RegisterScreen() {
           ✍
         </div>
         <h2 style={{ margin: "0 0 8px", fontSize: "1.2em" }}>{t("register.step3Title")}</h2>
-        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.88em", margin: "0 0 8px", padding: "0 24px" }}>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 8px", padding: "0 24px" }}>
           {phase === "registering"
             ? t("register.registeringAlias")
             : t("register.approveInXaman")}
         </p>
-        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.78em", margin: 0 }}>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.875em", margin: 0 }}>
           {phase === "registering" ? t("register.almostDone") : t("common.waitingSignature")}
         </p>
 
         {/* A failed dispatch used to set errMsg that nothing rendered here, so the
             screen just sat on "Waiting for signature…". Show it. */}
         {errMsg && phase === "signing" && (
-          <p style={{ color: "var(--xapp-danger)", fontSize: "0.82em", margin: "14px 0 0", padding: "0 24px" }}>{errMsg}</p>
+          <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "14px 0 0", padding: "0 24px" }}>{errMsg}</p>
         )}
 
         {phase === "signing" && signCtx && (
@@ -1063,8 +1081,8 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
             ✓
           </div>
           <h2 style={{ margin: "0 0 6px", fontSize: "1.3em" }}>{t("send.sentTitle")}</h2>
-          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.8em", margin: "0 0 4px" }}>{t("send.transactionId")}</p>
-          <code style={{ fontSize: "0.75em", wordBreak: "break-all", display: "block", padding: "0 16px", opacity: 0.7 }}>
+          <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 4px" }}>{t("send.transactionId")}</p>
+          <code style={{ fontSize: "0.875em", wordBreak: "break-all", display: "block", padding: "0 16px", color: "var(--xapp-text-muted)" }}>
             {txid}
           </code>
           <Btn onClick={reset} active style={{ marginTop: 32 }}>{t("send.sendAgain")}</Btn>
@@ -1090,7 +1108,7 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
       />
 
       {preview && (
-        <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "0.88em" }}>
+        <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "1em" }}>
           <img
             src={`${apiBase}/identity/preview/${preview.alias}`}
             alt={`${preview.alias} identity`}
@@ -1103,7 +1121,7 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
         </div>
       )}
       {previewErr && (
-        <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "6px 0 0" }}>{previewErr}</p>
+        <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "6px 0 0" }}>{previewErr}</p>
       )}
 
       {preview && (
@@ -1131,7 +1149,7 @@ function SendScreen({ initialAlias }: { initialAlias?: string | null }) {
       {/* Show errMsg whenever it's set — not only in the "error" phase — so a
           failed sign-request dispatch during "signing" is visible. */}
       {errMsg && (
-        <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "10px 0 0" }}>{errMsg}</p>
+        <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "10px 0 0" }}>{errMsg}</p>
       )}
 
       <Btn
@@ -1251,14 +1269,14 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
     <Shell>
       <Header account={account} />
       <h2 style={{ margin: "0 0 4px", fontSize: "1.2em" }}>{t("gallery.title")}</h2>
-      <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 20px" }}>
+      <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 20px" }}>
         {items ? t("gallery.countMinted", { count: items.length }) : t("common.loading")}
       </p>
 
-      {err && <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em" }}>{err}</p>}
+      {err && <p style={{ color: "var(--xapp-danger)", fontSize: "1em" }}>{err}</p>}
 
       {items && items.length === 0 && !err && (
-        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em" }}>{t("gallery.empty")}</p>
+        <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em" }}>{t("gallery.empty")}</p>
       )}
 
       {items && items.length > 0 && (
@@ -1338,16 +1356,16 @@ function GalleryScreen({ onSend }: { onSend: (alias: string) => void }) {
                 border: "1px solid rgba(255, 255, 255, 0.18)",
                 background: "rgba(255, 255, 255, 0.06)",
                 color: copied ? "var(--xapp-gold)" : "rgba(255, 255, 255, 0.72)",
-                fontFamily: "monospace", fontSize: "0.72em", cursor: "pointer",
+                fontFamily: "monospace", fontSize: "0.875em", cursor: "pointer",
                 transition: "color 0.15s",
               }}
             >
               {copied
                 ? t("gallery.tokenIdCopied")
-                : <>{shortAddr(sel.nft_token_id)} <span aria-hidden="true" style={{ opacity: 0.7 }}>⧉</span></>}
+                : <>{shortAddr(sel.nft_token_id)} <span aria-hidden="true" style={{ opacity: 1 }}>⧉</span></>}
             </button>
           )}
-          <div style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: "0.72em", marginTop: 10 }}>
+          <div style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: "0.875em", marginTop: 10 }}>
             {t("gallery.position", { index: openIdx + 1, total })}
           </div>
 
@@ -1411,7 +1429,7 @@ function GalleryTile({ src, label, ariaLabel, onClick }: {
           />
         )}
       </button>
-      <div style={{ fontSize: "0.75em", marginTop: 4, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div style={{ fontSize: "0.875em", marginTop: 4, color: "var(--xapp-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {label}
       </div>
     </div>
@@ -1496,7 +1514,7 @@ function BuyScreen() {
     <Shell>
       <Header account={account} />
       <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("buy.title")}</h2>
-      <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.85em", margin: "0 0 24px", lineHeight: 1.5 }}>
+      <p style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em", margin: "0 0 24px", lineHeight: 1.5 }}>
         {t("buy.intro")}
       </p>
 
@@ -1513,23 +1531,23 @@ function BuyScreen() {
       />
 
       {resolved && (
-        <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "0.88em" }}>
+        <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "1em" }}>
           <Row label={t("buy.rowTo")} value={resolved.alias} />
           <Row label={t("buy.rowAddress")} value={resolved.wallet_address} mono />
         </div>
       )}
       {resolveErr && (
-        <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "6px 0 0" }}>{resolveErr}</p>
+        <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "6px 0 0" }}>{resolveErr}</p>
       )}
 
       {phase === "opened" ? (
-        <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "0.88em", margin: "24px 0 0", textAlign: "center" }}>
+        <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "1em", margin: "24px 0 0", textAlign: "center" }}>
           {t("buy.checkoutOpened", { alias: resolved?.alias ?? "" })}
         </p>
       ) : (
         <>
           {phase === "error" && (
-            <p style={{ color: "var(--xapp-danger)", fontSize: "0.85em", margin: "14px 0 0" }}>{errMsg}</p>
+            <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "14px 0 0" }}>{errMsg}</p>
           )}
           <Btn
             onClick={buy}
@@ -1552,7 +1570,7 @@ function Header({ account }: { account: string }) {
       <span style={{ fontWeight: 700, fontSize: "1.05em", letterSpacing: "-0.01em" }}>DNS://Money</span>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <LangSwitcher />
-        <span style={{ fontSize: "0.75em", background: "var(--xapp-surface-muted)", borderRadius: 20, padding: "3px 10px", opacity: 0.75, fontFamily: "monospace" }}>
+        <span style={{ fontSize: "0.875em", background: "var(--xapp-surface-muted)", borderRadius: 20, padding: "3px 10px", color: "var(--xapp-text-muted)", fontFamily: "monospace" }}>
           {shortAddr(account)}
         </span>
       </div>
@@ -1578,7 +1596,7 @@ function LangSwitcher() {
               minWidth: 40,
               minHeight: 40,
               padding: "4px 6px",
-              fontSize: "0.78em",
+              fontSize: "0.875em",
               fontWeight: active ? 700 : 400,
               color: active ? "var(--xapp-accent)" : "var(--xapp-text)",
               opacity: active ? 1 : 0.5,
@@ -1609,7 +1627,7 @@ function SignFallback({ deeplink, onReopen, onDeeplink }: { uuid: string; deepli
   const t = useT();
   return (
     <div style={{ marginTop: 28, padding: "14px 16px", border: "1px solid var(--xapp-border)", borderRadius: 12, background: "var(--xapp-surface)", textAlign: "center" }}>
-      <p style={{ fontSize: "0.82em", color: "var(--xapp-text-muted)", opacity: 0.9, margin: "0 0 12px", lineHeight: 1.5 }}>
+      <p style={{ fontSize: "1em", color: "var(--xapp-text-muted)", opacity: 0.9, margin: "0 0 12px", lineHeight: 1.5 }}>
         {t("sign.notOpening")}
       </p>
       <Btn active onClick={onReopen}>{t("sign.reopen")}</Btn>
@@ -1628,7 +1646,7 @@ function SignFallback({ deeplink, onReopen, onDeeplink }: { uuid: string; deepli
             e.preventDefault();
             void openExternal(deeplink);
           }}
-          style={{ display: "block", width: "100%", marginTop: 10, padding: "8px", background: "none", border: "none", color: "var(--xapp-accent)", fontSize: "0.82em", cursor: "pointer" }}
+          style={{ display: "block", width: "100%", marginTop: 10, padding: "8px", minHeight: 40, background: "none", border: "none", color: "var(--xapp-accent)", fontSize: "1em", cursor: "pointer" }}
         >
           {t("sign.openInXaman")}
         </a>
@@ -1644,9 +1662,9 @@ function LegalFooter() {
   const SITE = "https://dnsofmoney.com";
   const linkStyle: React.CSSProperties = {
     background: "none", border: "none", color: "var(--xapp-text-muted)",
-    opacity: 0.7, fontSize: "0.72em", cursor: "pointer", padding: 4, textDecoration: "underline",
+    display: "inline-flex", alignItems: "center", minHeight: 40, fontSize: "0.875em", cursor: "pointer", padding: "0 10px", textDecoration: "underline",
   };
-  const dot = <span style={{ opacity: 0.3, fontSize: "0.7em" }}>·</span>;
+  const dot = <span style={{ opacity: 0.3, fontSize: "0.875em" }}>·</span>;
 
   // Real anchors, not buttons. Inside Xaman we intercept and hand the URL to
   // the host so it opens in the wallet's browser; if no host bridge is present
@@ -1692,12 +1710,12 @@ function CenteredMsg({ children }: { children: React.ReactNode }) {
 
 function Spinner() {
   const t = useT();
-  return <CenteredMsg><span style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "0.9em" }}>{t("common.loading")}</span></CenteredMsg>;
+  return <CenteredMsg><span style={{ color: "var(--xapp-text-muted)", opacity: 0.85, fontSize: "1em" }}>{t("common.loading")}</span></CenteredMsg>;
 }
 
 function Label({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <p style={{ fontSize: "0.75em", fontWeight: 600, color: "var(--xapp-text-muted)", opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px 0", ...style }}>
+    <p style={{ fontSize: "0.875em", fontWeight: 600, color: "var(--xapp-text-muted)", opacity: 0.85, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px 0", ...style }}>
       {children}
     </p>
   );

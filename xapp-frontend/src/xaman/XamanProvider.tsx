@@ -118,7 +118,7 @@ export function XamanProvider({ children }: Props) {
 
         if (!xAppToken) {
           throw new Error(
-            "Missing xAppToken query param — is this running inside Xaman or xAppBuilder?",
+            "Open this app from inside Xaman. It cannot run in a normal browser.",
           );
         }
 
