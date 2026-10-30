@@ -128,7 +128,7 @@ export const en = {
   buy: {
     title: "Add XRP",
     intro:
-      "Fund a pay:name with a card or Apple Pay. Handled by MoonPay — DNS://Money never touches your funds.",
+      "Add XRP to your wallet or to a pay:name, so you can pay and send with it. MoonPay is a third party. It sets its own fees and may ask for ID. DNS://Money never touches your funds.",
     deliverToAlias: "Deliver to alias",
     rowTo: "To",
     rowAddress: "Address",

@@ -125,7 +125,7 @@ export const ja: Messages = {
   buy: {
     title: "XRPを追加",
     intro:
-      "カードまたはApple Payで pay:name に入金します。MoonPayが処理し、DNS://Money が資金に触れることはありません。",
+      "XRPを追加して、pay:name への支払いや送金に使えます。MoonPayは第三者のサービスで、手数料は同社が定め、本人確認が必要な場合があります。DNS://Money が資金に触れることはありません。",
     deliverToAlias: "届け先エイリアス",
     rowTo: "宛先",
     rowAddress: "アドレス",
