@@ -3,6 +3,8 @@ import { useXaman } from "./xaman/useXaman";
 import { ApiError, useApiClient } from "./api/client";
 import { openBrowser, openSignRequest, isXappHost, hostDiagnostics } from "./xaman/sdk";
 import { useT, useI18n, useXamanLocale, SUPPORTED, LOCALE_LABELS, type TFunc } from "./i18n";
+import ColdScreen from "./cold/ColdScreen";
+import { COLD_ENABLED } from "./cold/relay";
 
 // Opens an external URL WITHOUT ever navigating the xApp's own WebView away.
 //
@@ -40,7 +42,7 @@ function useEventLogger(flow: "register" | "send" | "claim" | "boot") {
   );
 }
 
-type Screen = "register" | "send" | "gallery" | "buy";
+type Screen = "register" | "send" | "gallery" | "buy" | "cold";
 
 export default function App() {
   const { session, loading, error } = useXaman();
@@ -94,7 +96,7 @@ export default function App() {
   return (
     <>
       <div style={{ paddingBottom: 64 }}>
-        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen initialAlias={sendAlias} /> : screen === "gallery" ? <GalleryScreen onSend={goSendTo} /> : <BuyScreen />}
+        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen initialAlias={sendAlias} /> : screen === "gallery" ? <GalleryScreen onSend={goSendTo} /> : screen === "cold" ? <ColdScreen /> : <BuyScreen />}
       </div>
       <TabBar screen={screen} onSwitch={switchTab} />
     </>
@@ -118,7 +120,7 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
         zIndex: 100,
       }}
     >
-      {(["register", "send", "gallery", "buy"] as Screen[]).map((s) => (
+      {((COLD_ENABLED ? ["register", "send", "gallery", "buy", "cold"] : ["register", "send", "gallery", "buy"]) as Screen[]).map((s) => (
         <button
           key={s}
           onClick={() => onSwitch(s)}
