@@ -14,9 +14,10 @@ import { useT, useI18n, useXamanLocale, SUPPORTED, LOCALE_LABELS, type TFunc } f
 //     NOTHING destructive — never replace the xApp.
 //   - Outside a host (local dev / plain browser only): open a new tab.
 async function openExternal(url: string): Promise<boolean> {
-  if (isXappHost()) {
-    return openBrowser(url); // host opens it in the device browser; xApp stays put
-  }
+  // Always try the host first (no isXappHost gate): openBrowser reports false
+  // at once when there is no bridge. Never navigate the WebView itself.
+  if (await openBrowser(url)) return true;
+  if (isXappHost()) return false;
   window.open(url, "_blank", "noopener,noreferrer");
   return true;
 }
@@ -271,6 +272,7 @@ function RegisterScreen() {
   const [walletChecking, setWalletChecking] = useState(true);
   const [existingAlias, setExistingAlias] = useState<string | null>(null);
   const [mintStatus, setMintStatus] = useState("registered");
+  const [statusCheckN, setStatusCheckN] = useState(0);
   const [nftImageUri, setNftImageUri] = useState<string | null>(null);
   const [nftReady, setNftReady] = useState(false);
   const [claimPhase, setClaimPhase] = useState<ClaimPhase>("idle");
@@ -328,35 +330,19 @@ function RegisterScreen() {
         /* transient — keep polling */
       }
     };
-    // Status is not a Xaman payload, so there is no websocket for it. Keep the
-    // request count low: back off from 5s to 30s, and pause while hidden.
-    let delay = 5000;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let busy = false;
-    const loop = async () => {
-      if (cancelled || busy) return;
-      busy = true;
-      if (!document.hidden) await tick();
-      busy = false;
-      if (cancelled) return;
-      timer = setTimeout(loop, delay);
-      delay = Math.min(delay * 1.5, 30000);
-    };
+    // Xaman rule: no polling. Status is not a Xaman payload, so there is no
+    // websocket for it. Check once now, again when the user returns to the
+    // xApp, and whenever they tap "Check status". No timers.
     const onVisible = () => {
-      if (!document.hidden && !cancelled) {
-        if (timer) clearTimeout(timer);
-        delay = 5000;
-        void loop();
-      }
+      if (!document.hidden) void tick();
     };
     document.addEventListener("visibilitychange", onVisible);
-    void loop();
+    void tick();
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [phase, mintedAlias, mintStatus, apiBase]);
+  }, [phase, mintedAlias, mintStatus, apiBase, statusCheckN]);
 
   function onNameChange(value: string) {
     const stripped = value.replace(/^pay:/i, "").toLowerCase();
@@ -714,6 +700,11 @@ function RegisterScreen() {
               <br />
               <span style={{ color: "var(--xapp-text-muted)" }}>{t("register.mintTakesAMinute")}</span>
             </p>
+          )}
+          {!nftReady && !mintStatus.endsWith("_failed") && mintStatus !== "complete" && (
+            <div style={{ marginBottom: 20 }}>
+              <Btn onClick={() => setStatusCheckN((n) => n + 1)}>{t("mintStatus.check")}</Btn>
+            </div>
           )}
 
           <Btn onClick={reset} active>{t("register.registerAnother")}</Btn>
@@ -1642,12 +1633,10 @@ function SignFallback({ deeplink, onReopen, onDeeplink }: { uuid: string; deepli
         // and Xaman picks up the payload.
         <a
           href={deeplink}
-          target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => {
             onDeeplink?.(); // telemetry
-            if (!isXappHost()) return; // let the anchor follow the href
-            e.preventDefault();
+            e.preventDefault(); // never navigate the WebView
             void openExternal(deeplink);
           }}
           style={{ display: "block", width: "100%", marginTop: 10, padding: "8px", minHeight: 40, background: "none", border: "none", color: "var(--xapp-accent-text)", fontSize: "1em", cursor: "pointer" }}
@@ -1679,12 +1668,10 @@ function LegalFooter() {
     return (
       <a
         href={url}
-        target="_blank"
         rel="noopener noreferrer"
         style={linkStyle}
         onClick={(e) => {
-          if (!isXappHost()) return; // let the browser follow the href
-          e.preventDefault();
+          e.preventDefault(); // never navigate the WebView
           void openExternal(url);
         }}
       >

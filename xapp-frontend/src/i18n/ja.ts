@@ -40,6 +40,7 @@ export const ja: Messages = {
   },
 
   mintStatus: {
+    check: "状態を確認",
     preparing: "準備中…",
     rendering: "アイデンティティを生成中…",
     uploading: "IPFSにアップロード中…",
@@ -123,7 +124,7 @@ export const ja: Messages = {
   },
 
   buy: {
-    title: "XRPを追加",
+    title: "入金",
     intro:
       "XRPを追加して、pay:name への支払いや送金に使えます。MoonPayは第三者のサービスで、手数料は同社が定め、本人確認が必要な場合があります。DNS://Money が資金に触れることはありません。",
     deliverToAlias: "届け先エイリアス",
