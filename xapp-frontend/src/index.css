@@ -131,3 +131,6 @@ textarea {
   min-height: 44px;
   box-sizing: border-box;
 }
+
+/* Cold tab: placeholder text meets AA contrast (the browser default is too light). */
+.cold-screen input::placeholder { color: var(--xapp-text-muted); opacity: 1; }
