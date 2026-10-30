@@ -179,7 +179,14 @@ export function XamanProvider({ children }: Props) {
         applyXappStyle(data.context.style);
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Unknown boot error");
+          // Keep the raw backend detail for debugging, show plain text to the user.
+          console.error("xApp boot failed:", e);
+          const msg = e instanceof Error ? e.message : "";
+          setError(
+            msg.startsWith("Open this app")
+              ? msg
+              : "The app could not start. Close it and open it again from Xaman.",
+          );
         }
       } finally {
         if (!cancelled) {
