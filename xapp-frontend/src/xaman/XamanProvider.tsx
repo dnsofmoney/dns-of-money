@@ -118,7 +118,7 @@ export function XamanProvider({ children }: Props) {
 
         if (!xAppToken) {
           throw new Error(
-            "Missing xAppToken query param — is this running inside Xaman or xAppBuilder?",
+            "Open this app from inside Xaman. It cannot run in a normal browser.",
           );
         }
 
@@ -240,11 +240,12 @@ const THEMES: Record<XappStyle, Record<string, string>> = {
   LIGHT: {
     "--xapp-bg": "#ffffff",
     "--xapp-text": "#0a0619",
-    "--xapp-text-muted": "#6b6584",
+    "--xapp-text-muted": "#595370",
     "--xapp-surface": "#f5f7f9",
     "--xapp-surface-muted": "#eceef1",
     "--xapp-border": "rgba(10, 6, 25, 0.1)",
     "--xapp-accent": "#00c4b4",
+    "--xapp-accent-text": "#00796f",
     "--xapp-accent-light": "#00e5c3",
     "--xapp-gold": "#2e9e57",
     "--xapp-success": "#2e9e57",

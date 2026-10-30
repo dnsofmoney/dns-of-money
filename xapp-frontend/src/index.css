@@ -24,6 +24,8 @@
   --xapp-surface-muted: #eceef1;
   --xapp-border: rgba(10, 6, 25, 0.1);
   --xapp-accent: #00c4b4;
+  /* Accent for TEXT on white: #00c4b4 is only ~2.2:1, this is ~5.3:1. */
+  --xapp-accent-text: #00796f;
   --xapp-accent-light: #00e5c3;
   --xapp-gold: #2e9e57;
   --xapp-success: #2e9e57;
@@ -114,4 +116,18 @@ code {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.9em;
+}
+
+/* Xaman xApp requirements: 40px minimum touch targets, and 16px input text so
+   iOS does not zoom on focus. */
+button {
+  min-height: 40px;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px;
+  min-height: 44px;
+  box-sizing: border-box;
 }

@@ -1,7 +1,7 @@
 // Zero-dependency i18n layer for the xApp.
 //
 // - Catalogs live in en.ts (source of truth) and ja.ts (type-checked clone).
-// - Locale resolution priority: manual override (localStorage) → Xaman OTT
+// - Locale resolution priority: manual override (this session only, no storage) → Xaman OTT
 //   locale → browser language → English fallback.
 // - t("a.b.c", { name }) does dot-path lookup + {placeholder} interpolation.
 //   Unknown keys return the key itself, so a missing string is visible, not
@@ -27,7 +27,9 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   ja: "日本語",
 };
 
-const STORAGE_KEY = "xapp.locale";
+// Manual language pick, kept in memory only. Xaman asks xApps not to use
+// localStorage, and the Xaman OTT already reports the user locale.
+let manualPick: Locale | null = null;
 
 /** "ja-JP" → "ja"; returns null if the base tag isn't supported. */
 function normalize(tag: string | null | undefined): Locale | null {
@@ -37,11 +39,7 @@ function normalize(tag: string | null | undefined): Locale | null {
 }
 
 function readStored(): Locale | null {
-  try {
-    return normalize(localStorage.getItem(STORAGE_KEY));
-  } catch {
-    return null;
-  }
+  return manualPick;
 }
 
 /** Initial best guess before the Xaman session resolves. */
@@ -85,13 +83,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const setLocale = useCallback((loc: Locale, persist = true) => {
     setLocaleState(loc);
-    if (persist) {
-      try {
-        localStorage.setItem(STORAGE_KEY, loc);
-      } catch {
-        /* private mode — in-memory only */
-      }
-    }
+    if (persist) manualPick = loc;
   }, []);
 
   // Keep <html lang> accurate for a11y / screen readers.
