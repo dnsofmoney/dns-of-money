@@ -7,6 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- FAS-1 spec v0.3 (draft): §9.6 publishes the AP2 mandate mapping (IntentMandate, CartMandate, PaymentMandate). The mapping is not yet exposed on the public API.
+
+### Changed
+- FAS-1 spec §9.4 (MCP) and §9.5 (x402) now describe live surfaces. They no longer say "Roadmap".
+- `docs/FAS-1.md` is marked as superseded by `docs/FAS-1-spec.md`.
+- README: FedNow and ACH adapters are labelled as mock. No bank partner is live.
+
+### Fixed
+- The agent card and the `agent_commerce` block were labelled "AP2". They are A2A structures, and AP2 defines neither. Schemas, both SDKs, examples and the README now say A2A. See the 0.2.0 entry below.
 
 ## [0.3.0] — 2026-03-24
 
@@ -42,7 +51,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - FAS-1 specification v0.2 with founding tier, compliance signals, and AP2 integration sections
-- AP2 compatibility layer — `agent_commerce` block on all resolution responses
+- AP2 compatibility layer — `agent_commerce` block on all resolution responses *(Correction: this block is an A2A structure, not an AP2 one. See [Unreleased].)*
 - A2A protocol family support: A2A-003 (agent card), A2A-006 (receipt mapping), A2A-008 (canonical hash), A2A-009 (semantic normalizer), A2A-031 (resolution binding)
 - Resolution auth tiers — 4-level caller scoping with field redaction (tier 0–3)
 - Negative caching with 60-second TTL for `ALIAS_NOT_FOUND` responses

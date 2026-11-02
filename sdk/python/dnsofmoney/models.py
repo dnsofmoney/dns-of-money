@@ -59,7 +59,7 @@ class Identity:
 
 @dataclass
 class AgentCard:
-    """AP2/A2A-003 agent capability manifest."""
+    """A2A-003 agent capability manifest."""
 
     name: str
     endpoint: str

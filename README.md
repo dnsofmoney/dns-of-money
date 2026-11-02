@@ -53,7 +53,7 @@ DNS of Money is the naming and resolution layer for agentic commerce.
 │         ┌────────────────────┼────────────────────┐         │
 │         ▼                    ▼                    ▼         │
 │    XRPL Adapter         FedNow Adapter       ACH Adapter    │
-│    (XRPL mainnet)       (instant USD)        (licensed BaaS)│
+│    (mainnet, live)      (mock)               (mock)        │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -276,7 +276,7 @@ All memo transactions use the FAS-1 format:
 
 ## Founding Tier
 
-The first **600** `pay:` names are available at **5 XRP** flat — permanently grandfathered at founding pricing. One name per XRPL wallet. On-chain proof issued at registration.
+The first **600** `pay:` names are priced by claim order, graduated from 0 up to 5 XRP, and permanently grandfathered at the price paid. The current band is served live by `GET /api/v1/founding/status`. One name per XRPL wallet. On-chain proof issued at registration.
 
 Each founding name includes:
 - A permanent `pay:` alias on XRPL mainnet
@@ -344,7 +344,8 @@ This protocol is explicit about scope:
 ✅ Payment orchestration infrastructure
 ✅ Financial metadata layer
 ✅ Routing intelligence layer
-✅ API gateway over licensed banking infrastructure
+✅ API gateway pattern for licensed banking infrastructure
+   (adapter interfaces only. No bank partner is live today.)
 
 ❌ Not a bank
 ❌ Not a deposit holder
@@ -451,10 +452,14 @@ Authentication: `X-API-Key` header required for all write operations.
 - Marketing site live at [dnsofmoney.com](https://dnsofmoney.com) with SSL
 - Rate limiting + IPFS proxy at the edge
 - Managed secrets + HTTPS API live (`api.dnsofmoney.com`)
+- MCP server (remote, streamable HTTP) listed in the official MCP registry
+- x402 agent payments: multi-network challenge, paid counterparty screening,
+  discovery manifest at `/.well-known/x402`
 - 1,114 tests passing
 
 ### Roadmap 🗺️
-- FedNow production integration (pending banking partner)
+- FedNow and ACH production integration (pending a banking partner. Both are mock today.)
+- AP2 mandate layer on the public API (mapping published in spec §9.6)
 - SDK packages (Python, TypeScript, Go)
 - LangChain / CrewAI / AutoGPT integration modules
 - Subdomain delegation (hierarchical namespace tree)
@@ -471,7 +476,9 @@ Key properties:
 - Rail-agnostic: one alias resolves to N endpoints, ordered by policy
 - ISO 20022 aligned: every resolution carries a message family hint
 - On-chain anchored: namespace ownership is verifiable on XRPL mainnet
-- AP2/A2A/MCP compatible: designed for agentic commerce from day one
+- A2A, MCP and x402: live surfaces, not aspirations (see the spec, §9.4 and §9.5)
+- AP2: the three-mandate mapping is published in §9.6. Implemented as a spike,
+  not yet exposed on the public API
 
 Read the spec: [`docs/FAS-1-spec.md`](docs/FAS-1-spec.md)
 

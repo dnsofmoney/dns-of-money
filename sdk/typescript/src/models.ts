@@ -41,7 +41,7 @@ export interface Identity {
   tier?: string;
 }
 
-/** AP2/A2A-003 agent capability manifest. */
+/** A2A-003 agent capability manifest. */
 export interface AgentCard {
   name: string;
   endpoint: string;
