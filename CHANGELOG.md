@@ -13,8 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - FAS-1 spec §9.4 (MCP) and §9.5 (x402) now describe live surfaces. They no longer say "Roadmap".
 - `docs/FAS-1.md` is marked as superseded by `docs/FAS-1-spec.md`.
 - README: FedNow and ACH adapters are labelled as mock. No bank partner is live.
+- README: test count updated to the current CI result.
 
 ### Fixed
+- A quote about the "discoverability gap" was attributed to AP2. It is this project's own analysis. README and spec §9.1 no longer attribute it to AP2.
+- `docs/FAS-1.md` said Apache 2.0. The specification license is CC BY 4.0.
 - The agent card and the `agent_commerce` block were labelled "AP2". They are A2A structures, and AP2 defines neither. Schemas, both SDKs, examples and the README now say A2A. See the 0.2.0 entry below.
 
 ## [0.3.0] — 2026-03-24

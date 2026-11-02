@@ -32,10 +32,7 @@ No raw wallet addresses. No routing numbers in UX. One identifier that works eve
 
 ## Why This Exists
 
-**The agent address resolution gap.** AI agents can now transact autonomously — but there is no standard way to name them, register them, and convert those names into payment endpoints. AP2, A2A, and MCP all have this gap. FAS-1 is the answer.
-
-> *"Discoverability is a known gap. There is no way to register agents, name them, and convert those names into payment endpoints."*
-> — FAS-1 v0.2 (draft), AP2 gap analysis
+**The agent address resolution gap.** AI agents can now transact autonomously — but there is no standard way to name them, register them, and convert those names into payment endpoints. As we read AP2, A2A and MCP, none of them defines how to name a payee and resolve that name to a payment endpoint. FAS-1 fills that gap.
 
 DNS of Money is the naming and resolution layer for agentic commerce.
 
@@ -183,7 +180,7 @@ curl https://api.dnsofmoney.com/api/v1/aliases/available/yourname.here
 
 ### MCP / A2A
 
-DNS of Money resolves the agent payment discoverability gap identified in AP2 and A2A-002. Any agent can advertise a `pay:` alias; any caller can resolve it to a ranked list of payment endpoints without prior knowledge of the agent's banking infrastructure.
+DNS of Money fills the agent payment discoverability gap described in FAS-1 spec §9.1. Any agent can advertise a `pay:` alias; any caller can resolve it to a ranked list of payment endpoints without prior knowledge of the agent's banking infrastructure.
 
 ```python
 # A2A-031 binding pattern
@@ -455,7 +452,7 @@ Authentication: `X-API-Key` header required for all write operations.
 - MCP server (remote, streamable HTTP) listed in the official MCP registry
 - x402 agent payments: multi-network challenge, paid counterparty screening,
   discovery manifest at `/.well-known/x402`
-- 1,114 tests passing
+- 4,297 tests passing in CI on the reference implementation (2026-11-02)
 
 ### Roadmap 🗺️
 - FedNow and ACH production integration (pending a banking partner. Both are mock today.)

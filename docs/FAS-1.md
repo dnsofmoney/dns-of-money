@@ -5,7 +5,7 @@
 **Status:** Draft v0.2  
 **Date:** 2026-03-19  
 **Authors:** DNS of Money Project  
-**License:** Apache 2.0  
+**License:** CC BY 4.0  
 **Repository:** https://github.com/dnsofmoney/dns-of-money
 
 > **Superseded.** This file is an earlier copy of the specification. The current

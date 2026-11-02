@@ -426,9 +426,12 @@ FAS-1 is designed as native infrastructure for the machine economy. Aliases are 
 
 ### 9.1 The Agent Address Resolution Gap
 
-AP2 (Agent Payment Protocol) version 2 identifies a structural gap in agentic commerce infrastructure:
-
-> *"Discoverability is a known gap. There is no way to register agents, name them, and convert those names into payment endpoints."*
+Agent payment protocols define how an agent authorizes and carries a payment. AP2
+carries the funding instrument in open payment-method slots (see §9.6). A2A
+publishes an agent card. Neither defines how to register a name for a payee, or
+how to resolve that name to a payment endpoint. Earlier revisions of this section
+quoted that gap as a statement from AP2. That attribution was wrong, and v0.3
+removes it. The gap statement is this specification's own analysis.
 
 FAS-1 is the resolution layer that closes this gap. Any agent can register a `pay:` alias. Any caller can resolve it to a ranked list of payment endpoints without prior knowledge of the agent's banking infrastructure.
 
