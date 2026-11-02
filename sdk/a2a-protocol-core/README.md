@@ -49,15 +49,22 @@ package's `[verify]` extra).
 Canonical and semantic hashes here are **byte-for-byte identical** to the Python
 `a2a-protocol-core`. Two agents — one in Python, one in TypeScript — describing
 the same payment produce the **same** `computeCanonicalHash`. This is enforced by
-a shared cross-language vector file ([`test/vectors/canonical_vectors.json`](test/vectors/canonical_vectors.json),
-generated from the Python reference) that both test suites assert against.
+two shared cross-language vector files, generated from the Python reference, that
+both test suites assert against: [`test/vectors/canonical_vectors.json`](test/vectors/canonical_vectors.json)
+and [`test/vectors/extended_vectors.json`](test/vectors/extended_vectors.json)
+(float repr, booleans, big ints, escapes, nested values, the X-PAYMENT header).
 
 The subtlety: the hash is `SHA256(json.dumps(fields, sort_keys=True))` using
 Python's default separators (`", "` / `": "`) and `ensure_ascii=True`. A naive
-`JSON.stringify` would produce different bytes — so this package ships a faithful
-serializer (`src/_pyjson.ts`). **Pass amounts as strings** to stay in the
-proven-identical zone (a JSON float like `2.0` can't round-trip through a JS
-number).
+`JSON.stringify` would produce different bytes, so this package ships a faithful
+serializer (`src/_pyjson.ts`).
+
+Numbers: JS has one number type and Python has two. A plain integer `number` is a
+Python int, and any other plain `number` is a Python float. A `bigint` is an int
+of any size. Wrap a float with an integer value as `pyFloat(10)` to hash it as
+Python's `10.0`. To hash JSON text from another agent, decode it with
+`parsePyJson(text)`, which keeps `10` and `10.0` apart as `json.loads` does.
+**Pass amounts as strings** when you can: a string hashes the same everywhere.
 
 ## Quick start
 

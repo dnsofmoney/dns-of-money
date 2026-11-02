@@ -8,7 +8,7 @@
 
 import { createHash } from "node:crypto";
 
-import { pyJsonDumps } from "./_pyjson";
+import { pyClone, pyJsonDumps } from "./_pyjson";
 
 export const SYNONYM_MAP: Readonly<Record<string, string>> = {
   transfer: "EXECUTE_PAYMENT",
@@ -24,6 +24,24 @@ export const SYNONYM_MAP: Readonly<Record<string, string>> = {
   status: "REPORT",
 };
 
+// Python `str.strip()` with no argument removes every code point where
+// `str.isspace()` is true. That set differs from JS `trim()`: it adds the
+// separators U+001C..U+001F and U+0085, and it leaves U+FEFF in place.
+const PY_WHITESPACE = new Set(
+  "\t\n\v\f\r\u001c\u001d\u001e\u001f \u0085\u00a0\u1680" +
+    "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a" +
+    "\u2028\u2029\u202f\u205f\u3000",
+);
+
+/** Python `str.strip()` with no argument. */
+export function pyStrip(s: string): string {
+  let start = 0;
+  let end = s.length;
+  while (start < end && PY_WHITESPACE.has(s[start])) start++;
+  while (end > start && PY_WHITESPACE.has(s[end - 1])) end--;
+  return s.slice(start, end);
+}
+
 export const CANONICAL_ACTIONS: ReadonlySet<string> = new Set([
   "EXECUTE_PAYMENT",
   "QUERY",
@@ -36,7 +54,7 @@ export const CANONICAL_ACTIONS: ReadonlySet<string> = new Set([
  * Lowercases, strips, collapses synonyms. Throws if the result is not canonical.
  */
 export function normalizeAction(rawAction: string): string {
-  const cleaned = rawAction.trim().toLowerCase();
+  const cleaned = pyStrip(rawAction).toLowerCase();
   const canonical = SYNONYM_MAP[cleaned] ?? cleaned.toUpperCase();
   if (!CANONICAL_ACTIONS.has(canonical)) {
     const known = [...CANONICAL_ACTIONS].sort().join(", ");
@@ -47,7 +65,7 @@ export function normalizeAction(rawAction: string): string {
 
 /** Normalize the `action` field of an A2A message. Returns a copy; does not mutate. */
 export function normalizeMessage<T extends Record<string, unknown>>(message: T): T {
-  const normalized = structuredClone(message) as Record<string, unknown>;
+  const normalized = pyClone(message) as Record<string, unknown>;
   if ("action" in normalized) {
     normalized.action = normalizeAction(normalized.action as string);
   }

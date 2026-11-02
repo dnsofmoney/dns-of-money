@@ -6,6 +6,32 @@ numbers track the Python `a2a-protocol-core` reference — 0.3.0 here is feature
 parity with Python 0.3.0 (the 0.2.0/0.2.1 pay-path features are folded in,
 since TS skipped those releases).
 
+## [Unreleased]
+
+### Fixed
+
+- `computeCanonicalHash` and `computeSemanticHash` now match Python 0.3.0 on the
+  cases that `canonical_vectors.json` did not cover. Before this fix TS differed
+  on 11 of 22 extended canonical cases, 1 of 3 semantic cases and 3 of 3 X-PAYMENT
+  cases:
+  - floats use Python `repr` (`10.0`, `1e+16`, `1e-05`, `-0.0`)
+  - a boolean field value hashes as `True` / `False` (Python bool is an int)
+  - a `bigint` keeps every digit
+  - DEL (U+007F) is escaped as `\u007f`
+  - a nested object or list stays JSON, not `[object Object]`
+  - a numeric `action` is tried as a string, as Python does
+- `normalizeAction` strips like Python `str.strip()`: it removes U+001C..U+001F
+  and U+0085, and keeps U+FEFF.
+- `buildXPaymentHeader` writes the same bytes as Python `json.dumps` (`", "` and
+  `": "` separators, ensure_ascii). The server decoded both forms, so the old
+  header was not a wire break.
+
+### Added
+
+- `pyFloat(n)` marks a number as a Python float. `parsePyJson(text)` decodes JSON
+  text the way `json.loads` does (int vs float, big ints).
+- `test/vectors/extended_vectors.json`, generated from Python 0.3.0.
+
 ## [0.3.0] — 2026-07-20
 
 TS parity with Python 0.3.0: the SDK can buy and verify the product end to
