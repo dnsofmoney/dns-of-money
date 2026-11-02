@@ -25,6 +25,12 @@ since TS skipped those releases).
 - `buildXPaymentHeader` writes the same bytes as Python `json.dumps` (`", "` and
   `": "` separators, ensure_ascii). The server decoded both forms, so the old
   header was not a wire break.
+- Object keys sort by code point, as Python does. JS `sort()` put an astral key
+  before a key in U+E000..U+FFFF, so the semantic hash differed.
+- A `"__proto__"` key is a plain key, as in a Python dict. `computeCanonicalHash`
+  reads own keys only, so an inherited field never reaches the hash.
+- `parsePyJson` accepts `NaN`, `Infinity` and `-Infinity`, as `json.loads` does.
+  It refuses an int with more than 4300 digits, as Python does.
 
 ### Added
 

@@ -44,6 +44,9 @@ const INCLUDED_KEYS = [
 export function computeCanonicalHash(paymentRequest: Record<string, unknown>): string {
   const canonical: Record<string, unknown> = {};
   for (const key of INCLUDED_KEYS) {
+    // Own keys only, like a Python dict lookup. An inherited field (from a
+    // prototype the caller did not mean to include) must not reach the hash.
+    if (!Object.prototype.hasOwnProperty.call(paymentRequest, key)) continue;
     const val = paymentRequest[key];
     if (val === null || val === undefined) continue;
 

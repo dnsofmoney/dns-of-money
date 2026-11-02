@@ -68,7 +68,7 @@ export function pyFloatRepr(value: number): string {
  */
 export function pyNumberStr(value: unknown): string | undefined {
   if (typeof value === "boolean") return value ? "True" : "False";
-  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "bigint") return pyIntStr(value);
   if (value instanceof PyFloat) return pyFloatRepr(value.value);
   if (typeof value === "number") {
     return Number.isInteger(value) ? BigInt(value).toString() : pyFloatRepr(value);
@@ -81,10 +81,45 @@ export function pyClone<T>(value: T): T {
   if (Array.isArray(value)) return value.map(pyClone) as T;
   if (value !== null && typeof value === "object" && !(value instanceof PyFloat)) {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) out[k] = pyClone(v);
+    for (const [k, v] of Object.entries(value)) setOwn(out, k, pyClone(v));
     return out as T;
   }
   return value;
+}
+
+/**
+ * Set an own data property. `obj[key] = v` with key "__proto__" would replace
+ * the prototype instead, so the key would vanish from the hash, and its fields
+ * would show through as inherited ones. A Python dict has no such key.
+ */
+function setOwn(obj: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });
+}
+
+/** Python sorts str keys by code point. JS `sort()` compares UTF-16 code units. */
+function compareCodePoints(a: string, b: string): number {
+  const ai = a[Symbol.iterator]();
+  const bi = b[Symbol.iterator]();
+  for (;;) {
+    const x = ai.next();
+    const y = bi.next();
+    if (x.done || y.done) return x.done === y.done ? 0 : x.done ? -1 : 1;
+    const d = (x.value.codePointAt(0) as number) - (y.value.codePointAt(0) as number);
+    if (d !== 0) return d;
+  }
+}
+
+// CPython refuses to convert an int with more than this many digits to or from
+// text (sys.get_int_max_str_digits(), default 4300). Match it so TS never
+// hashes a value Python cannot.
+const PY_INT_MAX_STR_DIGITS = 4300;
+
+function pyIntStr(value: bigint): string {
+  const text = value.toString();
+  if (text.replace("-", "").length > PY_INT_MAX_STR_DIGITS) {
+    throw new RangeError(`int has more than ${PY_INT_MAX_STR_DIGITS} digits (Python's str() limit)`);
+  }
+  return text;
 }
 
 function escapeString(s: string): string {
@@ -127,7 +162,7 @@ function dump(value: unknown, sortKeys: boolean): string {
     case "number":
       return dumpNumber(value);
     case "bigint":
-      return value.toString();
+      return pyIntStr(value);
     case "string":
       return escapeString(value);
     case "object": {
@@ -135,7 +170,7 @@ function dump(value: unknown, sortKeys: boolean): string {
         return "[" + value.map((v) => dump(v, sortKeys)).join(", ") + "]";
       }
       const obj = value as Record<string, unknown>;
-      const keys = sortKeys ? Object.keys(obj).sort() : Object.keys(obj);
+      const keys = sortKeys ? Object.keys(obj).sort(compareCodePoints) : Object.keys(obj);
       return "{" + keys.map((k) => escapeString(k) + ": " + dump(obj[k], sortKeys)).join(", ") + "}";
     }
     default:
@@ -189,7 +224,9 @@ export function parsePyJson(text: string): unknown {
     i += lexeme.length;
     if (m![1] !== undefined || m![2] !== undefined) return new PyFloat(Number(lexeme));
     const n = Number(lexeme);
-    return Number.isSafeInteger(n) ? n : BigInt(lexeme);
+    if (Number.isSafeInteger(n)) return n;
+    if (lexeme.replace("-", "").length > PY_INT_MAX_STR_DIGITS) fail("int too long for Python");
+    return BigInt(lexeme);
   };
 
   const parseValue = (): unknown => {
@@ -210,7 +247,7 @@ export function parsePyJson(text: string): unknown {
         ws();
         if (text[i] !== ":") fail("expected ':'");
         i++;
-        obj[key] = parseValue();
+        setOwn(obj, key, parseValue());
         ws();
         if (text[i] === ",") {
           i++;
@@ -257,6 +294,17 @@ export function parsePyJson(text: string): unknown {
     if (text.startsWith("null", i)) {
       i += 4;
       return null;
+    }
+    // Python json.loads also accepts these three non-standard constants.
+    for (const [word, num] of [
+      ["NaN", NaN],
+      ["Infinity", Infinity],
+      ["-Infinity", -Infinity],
+    ] as const) {
+      if (text.startsWith(word, i)) {
+        i += word.length;
+        return new PyFloat(num);
+      }
     }
     return parseNumber();
   };

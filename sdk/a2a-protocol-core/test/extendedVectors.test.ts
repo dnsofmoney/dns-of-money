@@ -84,6 +84,72 @@ test("pyFloat and plain numbers hash like the parsed JSON text", () => {
   );
 });
 
+// Review cases for PR #26. Expected hashes were RECORDED from Python
+// a2a-protocol-core 0.3.0 (json.loads + compute_*_hash) on 2026-11-02.
+const PYTHON_RECORDED = {
+  canonical: [
+    {
+      name: "proto_key",
+      json: '{"__proto__": {"amount": "999"}, "currency": "XRP"}',
+      hash: "a489845d54ec384da3e6b6a9d3d0d002b3485602e43e041bb7f43f4b298c7fcc",
+    },
+    {
+      name: "proto_nested",
+      json: '{"amount": "1", "payment_category": {"__proto__": {"x": 1}, "a": 2}}',
+      hash: "f1c196a3ba828c3a4bfdbcf1aead5df62a8742f45288b2949160cdba379ad8fb",
+    },
+    {
+      name: "nan_amount",
+      json: '{"amount": NaN, "currency": "USD"}',
+      hash: "e82a4794643082d566e555e35d26eaa5bc1e0ef3c679d578f257453297c23299",
+    },
+    {
+      name: "inf_amount",
+      json: '{"amount": -Infinity, "currency": "USD"}',
+      hash: "692b65fea0df6ccc9fc26a0f50c7f8ac9761da7ebc08402169f9b3c1a8b8ec1a",
+    },
+  ],
+  semantic: [
+    {
+      name: "proto_key",
+      json: '{"__proto__": {"x": 1}, "action": "send"}',
+      hash: "24733965e0140729c7ef75e9edc09fca69c17342c072dded6dc97d69a7865324",
+    },
+    {
+      name: "astral_vs_bmp_keys",
+      json: '{"\\uff01": 1, "\\ud83d\\ude00": 2, "action": "pay"}',
+      hash: "fba3c835df60161baa3273add31b4b1bd22b461d6adaa076dc751e7916ceec03",
+    },
+  ],
+};
+
+test("a __proto__ key is a plain key, as in a Python dict", () => {
+  for (const c of PYTHON_RECORDED.canonical) {
+    const request = parsePyJson(c.json) as Record<string, unknown>;
+    assert.equal(computeCanonicalHash(request), c.hash, `canonical: ${c.name}`);
+  }
+  for (const s of PYTHON_RECORDED.semantic) {
+    // Both decoders must agree with Python: parsePyJson and native JSON.parse
+    // (which also makes "__proto__" an own key).
+    for (const decoded of [parsePyJson(s.json), JSON.parse(s.json)]) {
+      const normalized = normalizeMessage(decoded as Record<string, unknown>);
+      assert.equal(computeSemanticHash(normalized), s.hash, `semantic: ${s.name}`);
+    }
+  }
+});
+
+test("canonical hash ignores inherited fields", () => {
+  const request = Object.create({ amount: "999" }) as Record<string, unknown>;
+  request.currency = "XRP";
+  assert.equal(computeCanonicalHash(request), PYTHON_RECORDED.canonical[0].hash);
+});
+
+test("ints beyond Python's 4300-digit str limit are refused", () => {
+  assert.throws(() => parsePyJson('{"amount": ' + "9".repeat(4301) + "}"));
+  assert.throws(() => computeCanonicalHash({ amount: 10n ** 4300n }));
+  assert.doesNotThrow(() => parsePyJson('{"amount": ' + "9".repeat(4300) + "}"));
+});
+
 test("pay: grammar rejects a trailing newline", () => {
   assert.equal(isValidPayUri("pay:a\n"), false);
   assert.equal(isValidPayUri("pay:a"), true);
