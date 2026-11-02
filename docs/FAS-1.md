@@ -5,8 +5,12 @@
 **Status:** Draft v0.2  
 **Date:** 2026-03-19  
 **Authors:** DNS of Money Project  
-**License:** Apache 2.0  
+**License:** CC BY 4.0  
 **Repository:** https://github.com/dnsofmoney/dns-of-money
+
+> **Superseded.** This file is an earlier copy of the specification. The current
+> text is [`FAS-1-spec.md`](FAS-1-spec.md). If the two files disagree, use
+> `FAS-1-spec.md`.
 
 ---
 
@@ -408,7 +412,7 @@ Every FAS-1 resolution event emits a `resolution_id` (UUID) that maps to the `En
 
 ---
 
-## 9. AI Agent Compatibility (AP2 / A2A / MCP / x402)
+## 9. AI Agent Compatibility (A2A / MCP / x402 / AP2)
 
 FAS-1 is designed as native infrastructure for the machine economy. Aliases are the primary addressing primitive for AI agent payments.
 
@@ -426,21 +430,22 @@ AI Agent
   └─ Executes: payment via Layer 3 router (not FAS-1's responsibility)
 ```
 
-### 9.2 MCP Tool Surface (Roadmap)
+### 9.2 MCP Tool Surface
 
-A FAS-1 MCP server will expose the following tools to AI agents:
+The MCP server is live. The tool list and argument names are in
+[`FAS-1-spec.md` §9.4](FAS-1-spec.md#94-mcp-tool-surface).
 
-```
-resolve_alias(alias: str) → ResolutionResponse
-check_availability(alias: str) → AvailabilityStatus
-list_endpoints(alias: str) → List[PaymentEndpoint]
-```
+### 9.3 x402 Integration
 
-This allows any MCP-compatible AI agent (Claude, GPT, Gemini, open-source) to resolve payment addresses natively within their tool call loop.
+x402 payment to a `pay:` alias is live. The endpoints and the discovery manifest
+are in [`FAS-1-spec.md` §9.5](FAS-1-spec.md#95-x402-integration).
 
-### 9.3 x402 Payment Header Integration (Roadmap)
+### 9.4 AP2 Mandate Mapping
 
-FAS-1 aliases will be accepted as the `X-Payment-Destination` header in the x402 payment-required protocol. When a server returns `402 Payment Required` with a `pay:` alias, a compatible agent resolves the alias and completes the payment autonomously.
+The AP2 mandate mapping is in
+[`FAS-1-spec.md` §9.6](FAS-1-spec.md#96-ap2-mandate-mapping). It is not yet
+exposed on the public API. The `agent_card` and `agent_commerce` structures are
+A2A structures. AP2 defines neither.
 
 ---
 

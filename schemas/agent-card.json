@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://spec.dnsofmoney.com/fas-1/agent-card.json",
-  "title": "AP2/A2A-003 Agent Card",
+  "title": "A2A-003 Agent Card",
   "description": "Agent capability manifest following the A2A-003 specification. Returned from /.well-known/agent.json. Describes what an agent can do, which protocols it speaks, and how to pay it.",
   "type": "object",
   "required": ["agent_id", "name", "endpoint"],
@@ -137,7 +137,7 @@
         },
         "ap2": {
           "type": "string",
-          "description": "AP2 protocol version."
+          "description": "Version of the AP2 mandate profile this agent can exchange (FAS-1 §9.6). The agent card itself is an A2A artifact; AP2 defines no agent card. Omit if the agent exchanges no AP2 mandates."
         }
       }
     }

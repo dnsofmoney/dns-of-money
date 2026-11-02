@@ -215,7 +215,7 @@
     },
     "agent_commerce": {
       "type": "object",
-      "description": "AP2 compatibility block for agent-to-agent commerce. Present when the alias owner has registered agent capabilities.",
+      "description": "A2A agent-commerce block. Present when the alias owner has registered agent capabilities. This is an A2A structure, NOT an AP2 one: AP2 defines no such object. For the AP2 mandate mapping see FAS-1 §9.6.",
       "properties": {
         "agent_id": {
           "type": "string",

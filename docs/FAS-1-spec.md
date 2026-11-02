@@ -426,9 +426,12 @@ FAS-1 is designed as native infrastructure for the machine economy. Aliases are 
 
 ### 9.1 The Agent Address Resolution Gap
 
-AP2 (Agent Payment Protocol) version 2 identifies a structural gap in agentic commerce infrastructure:
-
-> *"Discoverability is a known gap. There is no way to register agents, name them, and convert those names into payment endpoints."*
+Agent payment protocols define how an agent authorizes and carries a payment. AP2
+carries the funding instrument in open payment-method slots (see §9.6). A2A
+publishes an agent card. Neither defines how to register a name for a payee, or
+how to resolve that name to a payment endpoint. Earlier revisions of this section
+quoted that gap as a statement from AP2. That attribution was wrong, and v0.3
+removes it. The gap statement is this specification's own analysis.
 
 FAS-1 is the resolution layer that closes this gap. Any agent can register a `pay:` alias. Any caller can resolve it to a ranked list of payment endpoints without prior knowledge of the agent's banking infrastructure.
 
@@ -467,19 +470,99 @@ AI Agent
 
 Resolution never executes payments. The resolver maps `pay:alias` → payment instruction. Execution is the caller's responsibility.
 
-### 9.4 MCP Tool Surface (Roadmap)
+### 9.4 MCP Tool Surface
 
-A FAS-1 MCP server will expose the following tools to AI agents:
+The reference implementation runs a remote MCP server over streamable HTTP. It is
+listed in the official MCP registry, so an MCP-capable agent needs no wrapper
+package. The tool surface is:
 
 ```
-resolve_alias(alias: str)        → ResolutionResponse
-check_availability(alias: str)   → AvailabilityStatus
-list_endpoints(alias: str)       → List[PaymentEndpoint]
+resolve_alias(alias_uri, amount?, currency?, preferred_rail?)
+discover_agent(alias_uri)
+check_alias_available(alias_uri)
+get_payment_requirements(alias_uri)
+get_payment_status(...)
+get_agent_registration_info(...)
+plan_delivery(...)
 ```
 
-### 9.5 x402 Integration (Roadmap)
+Note the argument name: it is `alias_uri`, not `alias`. Tools are deterministic.
+The resolver decides the rail; no model sits in that decision.
 
-FAS-1 aliases will be accepted as the `X-Payment-Destination` header in the x402 payment-required protocol. When a server returns `402 Payment Required` with a `pay:` alias, a compatible agent resolves the alias and completes payment autonomously.
+### 9.5 x402 Integration
+
+FAS-1 aliases are payable over the x402 HTTP 402 handshake. The resource server
+answers `402 Payment Required` with a challenge whose `payTo` is the deterministic
+endpoint resolved from the alias. The paying agent settles on-ledger and retries.
+
+Live endpoints under `/api/v1/x402`:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /pay/{alias}` | Pay a `pay:` alias |
+| `GET /screen/{target}` | Paid counterparty screen. Returns a `did:web`-signed verdict credential |
+| `GET /screen-xlayer/{target}` | Single-rail variant |
+| `GET /presend` | Pre-send address check |
+
+The challenge advertises several networks, each with its own derived `invoiceId`.
+Discovery is published at `/.well-known/x402`. **Read the live network set from
+that manifest rather than hard-coding it**: rails are flag-gated, and a
+facilitator fee-payer address rotates per invoice, so it must never be cached
+across challenges.
+
+Settlement is never custodial. The resolver reads the deterministic endpoint,
+verifies the transaction on-ledger, and records it.
+
+### 9.6 AP2 Mandate Mapping
+
+AP2 (the Agent Payments Protocol) is rail-agnostic. The funding instrument rides
+open slots, so a `pay:` alias settling on XRPL plugs in as a registered method
+string with no card, no PAN, and no network token.
+
+AP2 defines three mandates. FAS-1 maps onto them as follows.
+
+| AP2 mandate | FAS-1 role | Direction |
+|---|---|---|
+| `IntentMandate` | What the user authorized | Consumed |
+| `CartMandate` | What the payee offered | Emitted and signed |
+| `PaymentMandate` | How it settled | Emitted after settlement |
+
+The rail rides the slots AP2 leaves open:
+
+```
+PaymentMethodData.supported_methods = "https://dnsofmoney.com/ap2/xrpl-pay"
+PaymentMethodData.data              = { alias, xrpl_address }
+PaymentResponse.method_name         = "https://dnsofmoney.com/ap2/xrpl-pay"
+PaymentResponse.details             = { tx_hash, rail, status,
+                                        settle_time_seconds, ledger }
+PaymentResponse.request_id          = SHA-256 over canonical CartContents
+```
+
+`request_id` hash-chains the PaymentMandate back to the CartMandate, so a
+counterparty can verify the pair offline. `merchant_authorization` and
+`user_authorization` are SD-JWTs issued over the mandate contents by the one
+trust-layer proof engine. There is no second signing stack. The signer identity
+is the `did:key` of the signing Ed25519 key; the payee agent identity is
+`did:web:dnsofmoney.com`.
+
+**An IntentMandate carrying `requires_refundability: true` MUST be rejected.**
+XRPL settlement is final, so that requirement cannot be honored, and accepting
+the intent would misrepresent the rail.
+
+#### What AP2 is not
+
+AP2 defines no agent card and no agent-capability object. The `agent_card`
+artifact in this repository and the `agent_commerce` block in a resolution
+response are **A2A** structures. Earlier revisions of this repository labelled
+both "AP2/A2A"; that was wrong and is corrected as of v0.3.
+
+#### Status
+
+The mandate layer above is implemented in the reference implementation as a
+spike, verified field by field against the canonical AP2 types. It is **not yet
+exposed on the public API**, and the production key-custody model is still open.
+Sections 9.4 and 9.5 describe surfaces that are live; this one does not. Treat it
+as the published mapping contract, not as an available endpoint.
 
 ---
 
@@ -523,6 +606,7 @@ Payments routed through FAS-1-resolved endpoints that exceed jurisdictional thre
 |---|---|---|
 | v0.1 | Implemented | Core alias format, registration, resolution, XRPL memo anchor |
 | v0.2 | Draft | AP2 integration section, founding tier fields, compliance signals |
+| v0.3 | Draft | §9.6 real AP2 mandate mapping; `agent_card` / `agent_commerce` corrected from "AP2/A2A" to A2A; §9.4 MCP and §9.5 x402 promoted from Roadmap to live |
 | v1.0 | Planned | Stable release — NFT identity anchoring, sub-namespace delegation, MCP tool surface |
 
 Breaking changes to the URI syntax, resolution response schema, or XRPL memo schema require a version increment. New optional response fields are non-breaking.

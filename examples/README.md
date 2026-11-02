@@ -43,7 +43,7 @@ No external dependencies — uses built-in `fetch()`.
 |------|-------------|
 | [`curl/resolve.sh`](curl/resolve.sh) | One-liner to resolve `pay:vendor.alpha` |
 | [`curl/register.sh`](curl/register.sh) | Register a new alias (requires API key) |
-| [`curl/agent_card.sh`](curl/agent_card.sh) | Fetch the AP2/A2A-003 agent capability manifest |
+| [`curl/agent_card.sh`](curl/agent_card.sh) | Fetch the A2A-003 agent capability manifest |
 
 ## JSON Schemas
 
@@ -53,7 +53,7 @@ Machine-readable schemas for request/response validation:
 |--------|-------------|
 | [`schemas/resolution-response.json`](../schemas/resolution-response.json) | Full `ResolutionResponse` schema (draft-07) |
 | [`schemas/alias-registration.json`](../schemas/alias-registration.json) | Alias registration request body |
-| [`schemas/agent-card.json`](../schemas/agent-card.json) | AP2/A2A-003 agent card |
+| [`schemas/agent-card.json`](../schemas/agent-card.json) | A2A-003 agent card |
 
 ## Specification
 
