@@ -27,6 +27,7 @@
 
 import { createHash } from "node:crypto";
 
+import { pyJsonDumps } from "./_pyjson";
 import { getWithRetries } from "./_retry";
 
 /** Public mainnet XRPL WebSocket (multi-host cluster). Override for testnet/devnet.
@@ -54,7 +55,9 @@ export function buildXPaymentHeader(txHash: string, payer?: string | null): stri
   const payload: Record<string, string> = { txHash };
   if (payer) payload.payer = payer;
   const envelope = { x402Version: 2, payload };
-  return Buffer.from(JSON.stringify(envelope), "utf8").toString("base64");
+  // Python `json.dumps(envelope)`: insertion order, ", " and ": " separators,
+  // ensure_ascii. Byte-identical to the Python header.
+  return Buffer.from(pyJsonDumps(envelope, { sortKeys: false }), "utf8").toString("base64");
 }
 
 /**

@@ -3,20 +3,124 @@
  * so canonical/semantic hashes computed here are BYTE-IDENTICAL to the Python
  * `a2a-protocol-core` reference implementation.
  *
- * The two non-obvious things this preserves vs. the native `JSON.stringify`:
+ * The non-obvious things this preserves vs. the native `JSON.stringify`:
  *   1. Separators carry spaces: items joined by ", " and keys by ": "
  *      (Python's default when `indent` is None).
- *   2. `ensure_ascii=True`: every non-ASCII code point is escaped as \uXXXX
- *      (surrogate pairs for astral chars), exactly as CPython does.
+ *   2. `ensure_ascii=True`: every code point outside 0x20..0x7E is escaped as
+ *      \uXXXX (surrogate pairs for astral chars, DEL as \u007f), exactly as
+ *      CPython does.
+ *   3. Python number text: ints print all their digits (bigint supported), and
+ *      floats print Python's `repr` (`10.0`, `1e+16`, `1e-05`, `-0.0`).
  *
  * Keys are sorted. For the protocol's field names (all ASCII) JS's default
  * code-unit sort equals Python's code-point sort.
  *
- * Caveat — numbers: JS cannot distinguish `2.0` from `2`, so a JSON float with a
- * trailing zero (`2.0`) serializes as `2` here but `2.0` in Python. The protocol
- * recommends passing amounts as STRINGS; the shared test vectors stay in the
- * proven-identical zone (strings + integers + non-trailing-zero floats).
+ * Numbers — the int/float split: JS has one number type, Python has two. Here a
+ * plain JS `number` with an integer value is a Python int, and any other plain
+ * `number` is a Python float. To send a Python float with an integer value
+ * (`10.0`), wrap it with `pyFloat(10)`. A `bigint` is a Python int of any size.
+ * `parsePyJson` decodes JSON text the way Python `json.loads` does, so it keeps
+ * `10` and `10.0` apart and keeps big ints exact.
  */
+
+/** A number that Python must see as a `float`, even when its value is integral. */
+export class PyFloat {
+  constructor(readonly value: number) {}
+}
+
+/** Mark `value` as a Python float (`pyFloat(10)` hashes as `10.0`). */
+export function pyFloat(value: number): PyFloat {
+  return new PyFloat(value);
+}
+
+/** Python `repr(float)`: shortest round-trip digits, Python's exponent rules. */
+export function pyFloatRepr(value: number): string {
+  if (Number.isNaN(value)) return "nan";
+  if (value === Infinity) return "inf";
+  if (value === -Infinity) return "-inf";
+  if (value === 0) return Object.is(value, -0) ? "-0.0" : "0.0";
+
+  const sign = value < 0 ? "-" : "";
+  // toExponential() with no argument gives the shortest digits that round-trip,
+  // the same digits CPython's repr picks.
+  const [mantissa, expText] = Math.abs(value).toExponential().split("e");
+  const digits = mantissa.replace(".", "");
+  const exp = Number(expText);
+  const decpt = exp + 1; // value = 0.<digits> * 10**decpt
+
+  if (decpt <= -4 || decpt > 16) {
+    const body = digits.length === 1 ? digits : digits[0] + "." + digits.slice(1);
+    const expSign = exp < 0 ? "-" : "+";
+    return sign + body + "e" + expSign + String(Math.abs(exp)).padStart(2, "0");
+  }
+  if (decpt <= 0) {
+    return sign + "0." + "0".repeat(-decpt) + digits;
+  }
+  if (digits.length <= decpt) {
+    return sign + digits + "0".repeat(decpt - digits.length) + ".0";
+  }
+  return sign + digits.slice(0, decpt) + "." + digits.slice(decpt);
+}
+
+/**
+ * Python `str()` of an int or float value, or `undefined` if `value` is not a
+ * number. A boolean is a Python int subclass, so `true` gives "True".
+ */
+export function pyNumberStr(value: unknown): string | undefined {
+  if (typeof value === "boolean") return value ? "True" : "False";
+  if (typeof value === "bigint") return pyIntStr(value);
+  if (value instanceof PyFloat) return pyFloatRepr(value.value);
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? BigInt(value).toString() : pyFloatRepr(value);
+  }
+  return undefined;
+}
+
+/** Deep copy that keeps `PyFloat` markers (structuredClone drops the class). */
+export function pyClone<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(pyClone) as T;
+  if (value !== null && typeof value === "object" && !(value instanceof PyFloat)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) setOwn(out, k, pyClone(v));
+    return out as T;
+  }
+  return value;
+}
+
+/**
+ * Set an own data property. `obj[key] = v` with key "__proto__" would replace
+ * the prototype instead, so the key would vanish from the hash, and its fields
+ * would show through as inherited ones. A Python dict has no such key.
+ */
+function setOwn(obj: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });
+}
+
+/** Python sorts str keys by code point. JS `sort()` compares UTF-16 code units. */
+function compareCodePoints(a: string, b: string): number {
+  const ai = a[Symbol.iterator]();
+  const bi = b[Symbol.iterator]();
+  for (;;) {
+    const x = ai.next();
+    const y = bi.next();
+    if (x.done || y.done) return x.done === y.done ? 0 : x.done ? -1 : 1;
+    const d = (x.value.codePointAt(0) as number) - (y.value.codePointAt(0) as number);
+    if (d !== 0) return d;
+  }
+}
+
+// CPython refuses to convert an int with more than this many digits to or from
+// text (sys.get_int_max_str_digits(), default 4300). Match it so TS never
+// hashes a value Python cannot.
+const PY_INT_MAX_STR_DIGITS = 4300;
+
+function pyIntStr(value: bigint): string {
+  const text = value.toString();
+  if (text.replace("-", "").length > PY_INT_MAX_STR_DIGITS) {
+    throw new RangeError(`int has more than ${PY_INT_MAX_STR_DIGITS} digits (Python's str() limit)`);
+  }
+  return text;
+}
 
 function escapeString(s: string): string {
   let out = '"';
@@ -29,8 +133,7 @@ function escapeString(s: string): string {
     else if (ch === "\t") out += "\\t";
     else if (ch === "\b") out += "\\b";
     else if (ch === "\f") out += "\\f";
-    else if (code < 0x20) out += "\\u" + code.toString(16).padStart(4, "0");
-    else if (code < 0x80) out += ch;
+    else if (code >= 0x20 && code < 0x7f) out += ch;
     else if (code <= 0xffff) out += "\\u" + code.toString(16).padStart(4, "0");
     else {
       const c = code - 0x10000;
@@ -42,29 +145,172 @@ function escapeString(s: string): string {
   return out + '"';
 }
 
-function dump(value: unknown): string {
+function dumpNumber(value: number): string {
+  // json.dumps writes float('nan') / float('inf') as NaN / Infinity.
+  if (Number.isNaN(value)) return "NaN";
+  if (value === Infinity) return "Infinity";
+  if (value === -Infinity) return "-Infinity";
+  return pyNumberStr(value) as string;
+}
+
+function dump(value: unknown, sortKeys: boolean): string {
   if (value === null || value === undefined) return "null";
+  if (value instanceof PyFloat) return Number.isFinite(value.value) ? pyFloatRepr(value.value) : dumpNumber(value.value);
   switch (typeof value) {
     case "boolean":
       return value ? "true" : "false";
     case "number":
-      return String(value); // see numbers caveat above
+      return dumpNumber(value);
+    case "bigint":
+      return pyIntStr(value);
     case "string":
       return escapeString(value);
     case "object": {
       if (Array.isArray(value)) {
-        return "[" + value.map(dump).join(", ") + "]";
+        return "[" + value.map((v) => dump(v, sortKeys)).join(", ") + "]";
       }
       const obj = value as Record<string, unknown>;
-      const keys = Object.keys(obj).sort();
-      return "{" + keys.map((k) => escapeString(k) + ": " + dump(obj[k])).join(", ") + "}";
+      const keys = sortKeys ? Object.keys(obj).sort(compareCodePoints) : Object.keys(obj);
+      return "{" + keys.map((k) => escapeString(k) + ": " + dump(obj[k], sortKeys)).join(", ") + "}";
     }
     default:
       throw new Error(`pyJsonDumps: cannot serialize ${typeof value}`);
   }
 }
 
-/** Serialize like Python `json.dumps(value, sort_keys=True)` (default separators, ensure_ascii). */
-export function pyJsonDumps(value: unknown): string {
-  return dump(value);
+/**
+ * Serialize like Python `json.dumps(value, sort_keys=True)` (default separators,
+ * ensure_ascii). Pass `sortKeys: false` to mirror a bare `json.dumps(value)`,
+ * which keeps insertion order.
+ */
+export function pyJsonDumps(value: unknown, options: { sortKeys?: boolean } = {}): string {
+  return dump(value, options.sortKeys ?? true);
+}
+
+/**
+ * Parse JSON text the way Python `json.loads` does: a number with a `.` or an
+ * exponent becomes a `PyFloat`, any other number becomes an int (a `number` when
+ * it is a safe integer, else a `bigint`). Use it to hash JSON text that came
+ * from a Python agent without losing `10.0` or digits above 2**53.
+ */
+export function parsePyJson(text: string): unknown {
+  let i = 0;
+
+  const fail = (msg: string): never => {
+    throw new SyntaxError(`parsePyJson: ${msg} at position ${i}`);
+  };
+  const ws = () => {
+    while (i < text.length && " \t\n\r".includes(text[i])) i++;
+  };
+
+  const parseString = (): string => {
+    const start = i;
+    i++; // opening quote
+    while (i < text.length && text[i] !== '"') {
+      if (text[i] === "\\") i++;
+      i++;
+    }
+    if (i >= text.length) fail("unterminated string");
+    i++; // closing quote
+    // The escapes JSON allows are the same in JS and Python; JSON.parse keeps
+    // lone surrogates as UTF-16 code units, like Python keeps them as code points.
+    return JSON.parse(text.slice(start, i)) as string;
+  };
+
+  const parseNumber = (): unknown => {
+    const m = /^-?(?:0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/.exec(text.slice(i));
+    if (!m) fail("bad number");
+    const lexeme = (m as RegExpExecArray)[0];
+    i += lexeme.length;
+    if (m![1] !== undefined || m![2] !== undefined) return new PyFloat(Number(lexeme));
+    const n = Number(lexeme);
+    if (Number.isSafeInteger(n)) return n;
+    if (lexeme.replace("-", "").length > PY_INT_MAX_STR_DIGITS) fail("int too long for Python");
+    return BigInt(lexeme);
+  };
+
+  const parseValue = (): unknown => {
+    ws();
+    const ch = text[i];
+    if (ch === "{") {
+      i++;
+      const obj: Record<string, unknown> = {};
+      ws();
+      if (text[i] === "}") {
+        i++;
+        return obj;
+      }
+      for (;;) {
+        ws();
+        if (text[i] !== '"') fail("expected key");
+        const key = parseString();
+        ws();
+        if (text[i] !== ":") fail("expected ':'");
+        i++;
+        setOwn(obj, key, parseValue());
+        ws();
+        if (text[i] === ",") {
+          i++;
+          continue;
+        }
+        if (text[i] === "}") {
+          i++;
+          return obj;
+        }
+        fail("expected ',' or '}'");
+      }
+    }
+    if (ch === "[") {
+      i++;
+      const arr: unknown[] = [];
+      ws();
+      if (text[i] === "]") {
+        i++;
+        return arr;
+      }
+      for (;;) {
+        arr.push(parseValue());
+        ws();
+        if (text[i] === ",") {
+          i++;
+          continue;
+        }
+        if (text[i] === "]") {
+          i++;
+          return arr;
+        }
+        fail("expected ',' or ']'");
+      }
+    }
+    if (ch === '"') return parseString();
+    if (text.startsWith("true", i)) {
+      i += 4;
+      return true;
+    }
+    if (text.startsWith("false", i)) {
+      i += 5;
+      return false;
+    }
+    if (text.startsWith("null", i)) {
+      i += 4;
+      return null;
+    }
+    // Python json.loads also accepts these three non-standard constants.
+    for (const [word, num] of [
+      ["NaN", NaN],
+      ["Infinity", Infinity],
+      ["-Infinity", -Infinity],
+    ] as const) {
+      if (text.startsWith(word, i)) {
+        i += word.length;
+        return new PyFloat(num);
+      }
+    }
+    return parseNumber();
+  };
+
+  const result = parseValue();
+  ws();
+  if (i !== text.length) fail("trailing data");
+  return result;
 }

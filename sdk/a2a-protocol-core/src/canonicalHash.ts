@@ -10,7 +10,7 @@
 
 import { createHash } from "node:crypto";
 
-import { pyJsonDumps } from "./_pyjson";
+import { pyJsonDumps, pyNumberStr } from "./_pyjson";
 import { normalizeAction } from "./semanticNormalizer";
 
 // Fields that carry semantic payment meaning — included if present. (Mirrors the
@@ -34,22 +34,29 @@ const INCLUDED_KEYS = [
  * Compute the SHA-256 canonical hash of the semantically significant fields.
  *
  * - Include only the whitelisted keys above (drops all noise/metadata).
- * - Stringify numeric values (pass strings to stay byte-identical cross-language).
+ * - Stringify numeric values the way Python `str()` does (`10.0`, `1e+16`, and
+ *   `True` for a boolean, which is a Python int). Pass strings to stay
+ *   byte-identical cross-language; see `_pyjson` for the int/float rules.
  * - Normalize `action` via the A2A-009 normalizer; keep raw if unrecognized.
+ * - Keep any other value (nested object, list) as-is for the serializer.
  * - Serialize with sorted keys + Python's default separators, then SHA-256.
  */
 export function computeCanonicalHash(paymentRequest: Record<string, unknown>): string {
-  const canonical: Record<string, string> = {};
+  const canonical: Record<string, unknown> = {};
   for (const key of INCLUDED_KEYS) {
+    // Own keys only, like a Python dict lookup. An inherited field (from a
+    // prototype the caller did not mean to include) must not reach the hash.
+    if (!Object.prototype.hasOwnProperty.call(paymentRequest, key)) continue;
     const val = paymentRequest[key];
     if (val === null || val === undefined) continue;
 
-    let out = typeof val === "number" ? String(val) : String(val);
-    if (key === "action" && typeof val === "string") {
+    let out: unknown = pyNumberStr(val) ?? val;
+    // Python normalizes after the number-to-str step, so `5` is tried as "5".
+    if (key === "action" && typeof out === "string") {
       try {
-        out = normalizeAction(val);
+        out = normalizeAction(out);
       } catch {
-        out = val; // keep raw if not a recognized action
+        // keep raw if not a recognized action
       }
     }
     canonical[key] = out;

@@ -13,6 +13,8 @@ export { PAY_URI_PATTERN, MAX_PAY_URI_LENGTH, isValidPayUri, assertValidPayUri }
 
 export { computeCanonicalHash } from "./canonicalHash";
 
+export { PyFloat, pyFloat, parsePyJson } from "./_pyjson";
+
 export {
   SYNONYM_MAP,
   CANONICAL_ACTIONS,
