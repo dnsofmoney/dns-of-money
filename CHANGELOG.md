@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - FAS-1 spec §9.4 (MCP) and §9.5 (x402) now describe live surfaces. They no longer say "Roadmap".
 - `docs/FAS-1.md` is marked as superseded by `docs/FAS-1-spec.md`.
+- The Python and TypeScript SDKs now use Apache-2.0 instead of MIT, from the next release. Versions already published keep their MIT terms.
+- `docs/` now has its own `LICENSE` file for CC BY 4.0. The root MIT License does not apply to `docs/`.
 - README: FedNow and ACH adapters are labelled as mock. No bank partner is live.
 - README: test count updated to the current CI result.
 

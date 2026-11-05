@@ -10,7 +10,7 @@
     "test": "echo 'Tests coming soon'"
   },
   "keywords": ["payments", "dns", "fintech", "xrpl", "iso20022", "fas-1"],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {
     "typescript": "^5.0.0"

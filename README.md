@@ -408,7 +408,7 @@ dns-of-money/
 
 | Repo | Purpose | License |
 |---|---|---|
-| [`dnsofmoney/dns-of-money`](https://github.com/dnsofmoney/dns-of-money) | FAS-1 spec, integration docs, schemas (this repo) | CC BY 4.0 (`docs/`), MIT (code, schemas) |
+| [`dnsofmoney/dns-of-money`](https://github.com/dnsofmoney/dns-of-money) | FAS-1 spec, integration docs, schemas (this repo) | CC BY 4.0 (`docs/`), Apache-2.0 (`sdk/`), MIT (other code, schemas) |
 | [`dnsofmoney/a2a-protocol-core`](https://github.com/dnsofmoney/a2a-protocol-core) | A2A protocol core — agent-to-agent commerce | Apache 2.0 |
 
 ---
@@ -496,7 +496,8 @@ For protocol-level proposals, open an issue with the `[RFC]` prefix.
 ## License
 
 - Protocol specification and documentation (`docs/`): [CC BY 4.0](docs/LICENSE). The root MIT License does not apply to `docs/`.
-- Code, code examples and schemas: [MIT](LICENSE), except where a directory has its own license file.
+- SDKs (`sdk/`): [Apache-2.0](sdk/LICENSE).
+- Other code, code examples and schemas: [MIT](LICENSE), except where a directory has its own license file.
 
 ---
 
