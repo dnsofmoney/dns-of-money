@@ -40,7 +40,7 @@ function useEventLogger(flow: "register" | "send" | "claim" | "boot") {
   );
 }
 
-type Screen = "register" | "send" | "gallery" | "buy";
+type Screen = "register" | "send" | "gallery";
 
 export default function App() {
   const { session, loading, error } = useXaman();
@@ -94,7 +94,7 @@ export default function App() {
   return (
     <>
       <div style={{ paddingBottom: 64 }}>
-        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen initialAlias={sendAlias} /> : screen === "gallery" ? <GalleryScreen onSend={goSendTo} /> : <BuyScreen />}
+        {screen === "register" ? <RegisterScreen /> : screen === "send" ? <SendScreen initialAlias={sendAlias} /> : <GalleryScreen onSend={goSendTo} />}
       </div>
       <TabBar screen={screen} onSwitch={switchTab} />
     </>
@@ -118,7 +118,7 @@ function TabBar({ screen, onSwitch }: { screen: Screen; onSwitch: (s: Screen) =>
         zIndex: 100,
       }}
     >
-      {(["register", "send", "gallery", "buy"] as Screen[]).map((s) => (
+      {(["register", "send", "gallery"] as Screen[]).map((s) => (
         <button
           key={s}
           onClick={() => onSwitch(s)}
@@ -1434,134 +1434,6 @@ function GalleryTile({ src, label, ariaLabel, onClick }: {
   );
 }
 
-// ── Buy screen (fiat → XRP on-ramp, MoonPay) ──────────────────────────────────
-
-interface OnrampAddress {
-  alias: string;
-  currency: string;
-  wallet_address: string;
-}
-
-type BuyPhase = "idle" | "preparing" | "opened" | "error";
-
-function BuyScreen() {
-  const { session } = useXaman();
-  const { request } = useApiClient();
-  const t = useT();
-  const account = session!.context.account;
-
-  const [alias, setAlias] = useState("pay:");
-  const [resolved, setResolved] = useState<OnrampAddress | null>(null);
-  const [resolveErr, setResolveErr] = useState("");
-  const [phase, setPhase] = useState<BuyPhase>("idle");
-  const [errMsg, setErrMsg] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function onAliasChange(value: string) {
-    setAlias(value);
-    setResolved(null);
-    setResolveErr("");
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const stripped = value.replace(/^pay:/i, "").trim().toLowerCase();
-    if (stripped.length < 1) return;
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const data = await request<OnrampAddress>(
-          `/api/v1/onramp/address/pay:${encodeURIComponent(stripped)}`,
-          { method: "GET" },
-        );
-        setResolved(data);
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 404) setResolveErr(t("buy.aliasNotFound"));
-        else if (e instanceof ApiError && e.status === 422) setResolveErr(t("buy.noXrplAddress"));
-        else if (e instanceof ApiError && e.status === 503) setResolveErr(t("buy.notAvailable"));
-        else setResolveErr(t("buy.couldNotResolve"));
-      }
-    }, 500);
-  }
-
-  async function buy() {
-    if (!resolved?.wallet_address || phase === "preparing") return;
-    setPhase("preparing");
-    setErrMsg("");
-    try {
-      const data = await request<{ url: string }>("/api/v1/onramp/sign", {
-        method: "POST",
-        body: JSON.stringify({
-          params: {
-            currencyCode: "xrp",
-            walletAddress: resolved.wallet_address,
-            baseCurrencyCode: "usd",
-          },
-        }),
-      });
-      if (!data?.url) throw new Error("No checkout URL returned");
-      if (!(await openExternal(data.url))) throw new Error("Xaman did not open the checkout");
-      setPhase("opened");
-    } catch (e) {
-      const detail =
-        e instanceof ApiError
-          ? ((e.body as { detail?: string } | null)?.detail ?? t("common.serverError", { status: e.status }))
-          : e instanceof Error ? e.message : String(e);
-      setErrMsg(typeof detail === "string" ? detail : t("buy.couldNotStart"));
-      setPhase("error");
-    }
-  }
-
-  return (
-    <Shell>
-      <Header account={account} />
-      <h2 style={{ margin: "0 0 6px", fontSize: "1.2em" }}>{t("buy.title")}</h2>
-      <p style={{ color: "var(--xapp-text-muted)", fontSize: "1em", margin: "0 0 24px", lineHeight: 1.5 }}>
-        {t("buy.intro")}
-      </p>
-
-      <Label>{t("buy.deliverToAlias")}</Label>
-      <input
-        value={alias}
-        onChange={(e) => onAliasChange(e.target.value)}
-        placeholder={t("send.aliasPlaceholder")}
-        style={inputStyle}
-        autoCapitalize="none"
-        autoCorrect="off"
-        spellCheck={false}
-        inputMode="text"
-      />
-
-      {resolved && (
-        <div style={{ background: "var(--xapp-surface)", border: "1px solid var(--xapp-border)", borderRadius: 10, padding: "12px 14px", marginTop: 10, fontSize: "1em" }}>
-          <Row label={t("buy.rowTo")} value={resolved.alias} />
-          <Row label={t("buy.rowAddress")} value={resolved.wallet_address} mono />
-        </div>
-      )}
-      {resolveErr && (
-        <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "6px 0 0" }}>{resolveErr}</p>
-      )}
-
-      {phase === "opened" ? (
-        <p style={{ color: "var(--xapp-success)", fontWeight: 600, fontSize: "1em", margin: "24px 0 0", textAlign: "center" }}>
-          {t("buy.checkoutOpened", { alias: resolved?.alias ?? "" })}
-        </p>
-      ) : (
-        <>
-          {phase === "error" && (
-            <p style={{ color: "var(--xapp-danger)", fontSize: "1em", margin: "14px 0 0" }}>{errMsg}</p>
-          )}
-          <Btn
-            onClick={buy}
-            disabled={!resolved || phase === "preparing"}
-            active={!!resolved && phase !== "preparing"}
-            purple
-            style={{ marginTop: 24 }}
-          >
-            {phase === "preparing" ? t("buy.preparingCheckout") : t("buy.buyXrp")}
-          </Btn>
-        </>
-      )}
-    </Shell>
-  );
-}
-
 function Header({ account }: { account: string }) {
   return (
     <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
@@ -1726,18 +1598,15 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-function Btn({ children, onClick, disabled, active, gold, purple, style }: {
+function Btn({ children, onClick, disabled, active, gold, style }: {
   children: React.ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   active?: boolean;
   gold?: boolean;
-  purple?: boolean;
   style?: React.CSSProperties;
 }) {
-  const activeBg = purple
-    ? "linear-gradient(135deg, #7d00ff, #9b59ff)" // MoonPay brand purple
-    : gold
+  const activeBg = gold
     ? "var(--xapp-gold)"
     : "linear-gradient(135deg, var(--xapp-accent), var(--xapp-accent-light))";
   return (
@@ -1747,7 +1616,7 @@ function Btn({ children, onClick, disabled, active, gold, purple, style }: {
       style={{
         display: "block", width: "100%", padding: "14px", borderRadius: 12, border: "none",
         background: active ? activeBg : "var(--xapp-surface-muted)",
-        color: active ? (purple ? "#fff" : "#0a0619") : "var(--xapp-text)",
+        color: active ? "#0a0619" : "var(--xapp-text)",
         fontSize: "1em", fontWeight: 600,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.45 : 1,

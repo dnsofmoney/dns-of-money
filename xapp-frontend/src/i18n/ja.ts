@@ -22,7 +22,6 @@ export const ja: Messages = {
     register: "エイリアス取得",
     send: "送金",
     gallery: "ギャラリー",
-    buy: "入金",
   },
 
   steps: {
@@ -121,24 +120,6 @@ export const ja: Messages = {
     position: "{total}件中{index}件目",
     copyTokenId: "トークンIDをコピー",
     tokenIdCopied: "トークンIDをコピーしました ✓",
-  },
-
-  buy: {
-    title: "入金",
-    intro:
-      "XRPを追加して、pay:name への支払いや送金に使えます。MoonPayは第三者のサービスで、手数料は同社が定め、本人確認が必要な場合があります。DNS://Money が資金に触れることはありません。",
-    deliverToAlias: "届け先エイリアス",
-    rowTo: "宛先",
-    rowAddress: "アドレス",
-    aliasNotFound: "エイリアスが見つかりません",
-    noXrplAddress: "エイリアスにXRPLアドレスがありません",
-    notAvailable: "現在入金はご利用いただけません",
-    couldNotResolve: "エイリアスを解決できませんでした",
-    preparingCheckout: "チェックアウトを準備中…",
-    buyXrp: "MoonPayへ進む",
-    checkoutOpened:
-      "ブラウザでチェックアウトを開きました。そちらで完了してください — MoonPayの決済後、XRPが{alias}に届きます。",
-    couldNotStart: "チェックアウトを開始できませんでした",
   },
 
   sign: {

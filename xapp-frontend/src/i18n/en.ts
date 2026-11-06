@@ -22,7 +22,6 @@ export const en = {
     register: "Get Alias",
     send: "Send",
     gallery: "Gallery",
-    buy: "Fund",
   },
 
   steps: {
@@ -124,24 +123,6 @@ export const en = {
     position: "{index} of {total}",
     copyTokenId: "Copy token ID",
     tokenIdCopied: "Token ID copied ✓",
-  },
-
-  buy: {
-    title: "Fund",
-    intro:
-      "Add XRP to your wallet or to a pay:name, so you can pay and send with it. MoonPay is a third party. It sets its own fees and may ask for ID. DNS://Money never touches your funds.",
-    deliverToAlias: "Deliver to alias",
-    rowTo: "To",
-    rowAddress: "Address",
-    aliasNotFound: "Alias not found",
-    noXrplAddress: "Alias has no XRPL address",
-    notAvailable: "Funding isn't available right now",
-    couldNotResolve: "Could not resolve alias",
-    preparingCheckout: "Preparing checkout…",
-    buyXrp: "Continue to MoonPay",
-    checkoutOpened:
-      "Checkout opened in your browser. Finish there — XRP arrives at {alias} when MoonPay settles.",
-    couldNotStart: "Could not start checkout",
   },
 
   sign: {
