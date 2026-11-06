@@ -200,8 +200,7 @@ export function hostDiagnostics(): Record<string, string | boolean> {
 
 /**
  * Asks the Xaman host to open an external URL in the device browser. Used for
- * the MoonPay on-ramp hand-off, the hosted Terms / Privacy / Support pages, and
- * the sign-request deeplink.
+ * the hosted Terms / Privacy / Support pages and the sign-request deeplink.
  *
  * Returns TRUE only when the host acknowledged the command. On a missing bridge
  * the SDK resolves an Error after ~2.3s of retries, which we report as false so
