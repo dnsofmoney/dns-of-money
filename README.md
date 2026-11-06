@@ -427,7 +427,7 @@ Base URL: `https://api.dnsofmoney.com`
 
 Full API docs: [api.dnsofmoney.com/docs](https://api.dnsofmoney.com/docs)
 
-Authentication: `X-API-Key` header required for all write operations.
+Authentication: `X-API-Key` header required for all write operations. Read-only OAuth (`resolve:read`) works on `/resolve` and `/mcp`. See the [integration guide](docs/integration-guide.md#oauth-read-only).
 
 ---
 

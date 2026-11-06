@@ -6,7 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-05
+
 ### Added
+- Read-only OAuth: authorization code with PKCE S256 and scope `resolve:read`, on `/resolve` and `/mcp` only. Discovery is live on `api.dnsofmoney.com` and `dnsofmoney.com`.
+- x402 advertises 5 rails on `/pay`, `/screen` and `/resolve`: XRPL, Algorand, Base, X Layer and Solana. Real payments are proven on XRPL, Base and Solana.
+- Paid resolve: `GET /api/v1/x402/resolve/{alias}`.
+- Paid counterparty screening against the OFAC SDN list: `GET /api/v1/x402/screen/{target}`.
+- Rate limits, reported in `x-ratelimit-*` response headers.
+- Developer portal at `dnsofmoney.com/docs/`, with an OpenAPI document, a Postman collection, an APIs.json index and a deprecation policy.
+- Paging on collection routes, and a lease cancel route.
+- Go SDK: `github.com/dnsofmoney/dns-of-money-go` v0.1.0.
 - FAS-1 spec v0.3 (draft): §9.6 publishes the AP2 mandate mapping (IntentMandate, CartMandate, PaymentMandate). The mapping is not yet exposed on the public API.
 
 ### Changed
@@ -78,7 +88,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - ISO 20022 compatibility hints (`pacs.008`, `pain.001`, `pacs.002`)
 - Founding tier: 500-name hard cap at 5 XRP, one name per XRPL wallet
 
-[Unreleased]: https://github.com/dnsofmoney/dns-of-money/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/dnsofmoney/dns-of-money/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/dnsofmoney/dns-of-money/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dnsofmoney/dns-of-money/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dnsofmoney/dns-of-money/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/dnsofmoney/dns-of-money/releases/tag/v0.1.0

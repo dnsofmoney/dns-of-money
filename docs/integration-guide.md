@@ -96,6 +96,16 @@ Pass your API key via the `X-API-Key` header. Resolution works without a key (ti
 | 2 | Standard key | + full routing metadata, compliance |
 | 3 | Admin key | + identity block, rail_score, cache_hit |
 
+### OAuth (read-only)
+
+Agents and apps can use OAuth instead of holding an API key. OAuth grants one scope, `resolve:read`, and it works on `/resolve` and `/mcp` only. It cannot send a payment.
+
+- Discovery: `https://api.dnsofmoney.com/.well-known/oauth-authorization-server`
+- Protected resource metadata: `https://api.dnsofmoney.com/.well-known/oauth-protected-resource`
+- Flow: authorization code with PKCE S256, for public clients. Register a client at `POST /oauth/register`.
+- Tokens last 1 hour. There is no refresh token.
+- Send the token as `Authorization: Bearer <token>`. A bad token answers 401.
+
 ## Resolve a pay: alias
 
 ```
